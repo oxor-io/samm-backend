@@ -7,7 +7,7 @@ connect_args = {'check_same_thread': False}
 engine = create_engine(sqlite_url, connect_args=connect_args)
 
 
-# TODO: change database from sqlite to postgres 
+# TODO: change database from sqlite to postgres
 # import os
 # DATABASE_URL = os.environ.get('DATABASE_URL')
 # echo=True to see the generated SQL queries in the terminal

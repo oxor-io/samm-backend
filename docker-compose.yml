@@ -2,9 +2,15 @@ version: '3.8'
 
 services:
 
-  # relayer:
+#  relayer:
+#    build: ./relayer
+#    command: python main.py
+#    volumes:
+#      - ./relayer:/usr/src/app
+#    depends_on:
+#      - db
 
-  # blockchain:
+#  blockchain:
 
   web:
     build: ./web
