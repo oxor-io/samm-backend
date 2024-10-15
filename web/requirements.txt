@@ -1,0 +1,4 @@
+FastAPI==0.115.2
+sqlmodel==0.0.22
+fastapi-cli==0.0.5
+pydantic[email]==2.9.2

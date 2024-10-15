@@ -4,13 +4,13 @@ from fastapi import Query
 from sqlmodel import select
 from sqlmodel import Session
 
-from samm_api.db import get_session
-from samm_api.models import Samm
-from samm_api.models import SammCreate
-from samm_api.models import SammPublic
-from samm_api.models import Member
-from samm_api.models import MemberCreate
-from samm_api.models import MemberPublic
+from api.db import get_session
+from api.models import Samm
+from api.models import SammCreate
+from api.models import SammPublic
+from api.models import Member
+from api.models import MemberCreate
+from api.models import MemberPublic
 
 router = APIRouter()
 

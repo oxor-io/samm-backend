@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 
-from samm_api.db import init_db
-from samm_api.router import router
+from api.db import init_db
+from api.router import router
 
 app = FastAPI()
 app.include_router(router)

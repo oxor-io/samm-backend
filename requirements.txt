@@ -1,4 +1,0 @@
-FastAPI
-sqlmodel
-fastapi-cli
-pydantic[email]
