@@ -14,7 +14,8 @@ $ pip install -r requirements.txt
 
 ### Launch dev server
 ```sh
-$ fastapi dev samm_api/main.py
+$ cd web
+$ fastapi dev api/main.py
 ```
 
 ## Docker
