@@ -15,6 +15,7 @@ engine = create_engine(sqlite_url, connect_args=connect_args)
 
 
 def init_db():
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)
 
 

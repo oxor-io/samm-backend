@@ -2,7 +2,7 @@
 import asyncio
 import os
 import re
-from dataclasses import dataclass
+from datetime import datetime
 from email.message import Message
 from email.parser import BytesParser
 from email.utils import parseaddr
@@ -15,7 +15,18 @@ load_dotenv()
 
 import db
 import crud
-from sender import send_email
+from mailer.dkim_extractor import extract_dkim_data
+from mailer.sender import send_email
+from models import ApprovalData
+from models import InitialData
+from models import Member
+from models import MessageAttributes
+from models import MemberMessage
+from models import TransactionOperation
+from models import TxData
+from utils import convert_str_to_int_list
+from utils import generate_merkle_tree
+from utils import get_padded_email
 
 
 # https://github.com/bamthomas/aioimaplib
@@ -38,33 +49,6 @@ FETCH_MESSAGE_DATA_UID = re.compile(rb'.*UID (?P<uid>\d+).*')
 FETCH_MESSAGE_DATA_FLAGS = re.compile(rb'.*FLAGS \((?P<flags>.*?)\).*')
 
 CHUNK_SIZE = 10
-
-
-@dataclass
-class TxData:
-    to: int
-    value: int
-    data: str
-    operation: str
-    nonce: int
-
-
-@dataclass
-class MemberMessage:
-    member_name: str
-    member_email: str
-    date: str
-    dkim_signature: bytes
-    msg_hash: str
-    initial_tx: TxData | None
-
-
-@dataclass
-class MessageAttributes:
-    uid: int
-    # flags: list[str]
-    sequence_number: int
-    member_message: MemberMessage | None
 
 
 async def idle_loop(host, port, user):
@@ -123,10 +107,10 @@ async def process_imap_messages(lines: list) -> tuple[int, list[MessageAttribute
 
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
         if member_message:
-            zk_proof = await create_zk_proof(member_message)
+            zk_proof = await generate_zk_proof(member_message.approval_data)
             await store_member_message(uid, member_message, zk_proof)
-            # TODO: uncomment
-            # await send_response(member_message)
+            # TODO: notice all members if the new tx is received
+            await send_response(member_message)
 
         messages_attrs.append(MessageAttributes(
             uid=uid,
@@ -143,53 +127,66 @@ async def process_imap_messages(lines: list) -> tuple[int, list[MessageAttribute
 
 async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None:
     # verify DKIM
-    if not dkim.verify(raw_msg):
+    if not await dkim.verify_async(raw_msg):
+        print('DKIM is not valid')
         return None
 
     # parse email message
     msg: Message = BytesParser().parsebytes(raw_msg)
-    member_name, member_email = parseaddr(msg['From'])
+    _, member_email = parseaddr(msg['From'])
+    _, relayer_email = parseaddr(msg['To'])
     msg_hash = msg['Subject']
 
-    # # TODO: check To?
-    # if msg['To'] != RELAYER_EMAIL:
-    #     raise
+    if relayer_email != RELAYER_EMAIL:
+        print(f'Email To does not belong to Relayer {relayer_email} != {RELAYER_EMAIL}')
+        return None
 
     # TODO: check msgHash format
     if not msg_hash:
-        raise
+        print(f'msgHash format is not correct: {msg_hash}')
+        return None
 
+    # TODO: what the samm_id is used?
     member = await crud.get_member_by_email(member_email)
-    # TODO: uncomment
-    # if not member:
-    #     raise
+    if not member:
+        print(f'Email From is not a member: {member_email}')
+        return None
 
     # TODO: optimize via IMAP server flags
     if await crud.get_approval_by_uid(email_uid=uid):
-        raise
+        print(f'The email UID already was registered: {uid}')
+        # TODO: mb raise
+        return None
 
-    initial_tx: TxData | None = None
+    initial_data: InitialData | None = None
     tx = await crud.get_tx_by_msg_hash(msg_hash)
     if not tx:
         # TX initialization
         body = parse_body(msg)
-        initial_tx = extract_tx_data(body)
-        # TODO: uncomment
-        # if not initial_tx:
-        #     raise
+        samm_id, tx_data = extract_tx_data(body)
+        if not samm_id or not tx_data:
+            raise
+        members = await crud.get_members_by_samm(samm_id)
+        initial_data = InitialData(
+            samm_id=samm_id,
+            msg_hash=msg_hash,
+            tx_data=tx_data,
+            members=members,
+        )
     else:
         # TX approval
         # TODO: check tx_status or deadline if approval
         if await crud.get_approval_by_tx_and_email(tx_id=tx.id, member_id=member.id):
-            raise
+            print(f'Dublicate approval: tx={tx.id} member={member.id}')
+            return None
+        members = await crud.get_members_by_tx(tx.id)
 
+    approval_data = create_approval_data(raw_msg, msg_hash, members, member, relayer_email)
     return MemberMessage(
-        member_name=member_name,
-        member_email=member_email,
-        date=msg['Date'],
-        dkim_signature=msg['DKIM-Signature'],
-        msg_hash=msg_hash,
-        initial_tx=initial_tx,
+        member=member,
+        tx=tx,
+        initial_data=initial_data,
+        approval_data=approval_data,
     )
 
 
@@ -209,46 +206,92 @@ def parse_body(msg: Message) -> str:
     return ''
 
 
-def extract_tx_data(body: str) -> TxData | None:
+def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
     # TODO: extraction format
-    m = re.match(r'to=(?P<to>.*); value=(?P<value>.*); data=(?P<data>.*);'
-                 r' operation=(?P<operation>.*); nonce=(?P<nonce>.*);', body)
+    m = re.match(r'samm_id=(?P<samm_id>.*); to=(?P<to>.*); value=(?P<value>.*); data=(?P<data>.*);'
+                 r' operation=(?P<operation>.*); nonce=(?P<nonce>.*); deadline=(?P<deadline>.*);', body)
     try:
-        return TxData(
-            to=int(m.group('to')),
-            value=int(m.group('value')),
-            data=str(m.group('data')),
-            operation=str(m.group('operation')),
-            nonce=int(m.group('nonce')),
+        return (
+            int(m.group('samm_id')),
+            TxData(
+                to=str(m.group('to')),
+                value=int(m.group('value')),
+                data=str(m.group('data')),
+                operation=TransactionOperation(m.group('operation')),
+                nonce=int(m.group('nonce')),
+                deadline=datetime.strptime(str(m.group('deadline')), '%Y-%m-%d %H:%M'),
+            )
         )
     except (AttributeError, ValueError):  # no match or failed conversion
-        return
+        return None, None
 
 
-async def create_zk_proof(msg: MemberMessage) -> str:
-    # TODO: launch prover
-    return ''
+def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
+    header, header_length, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_dkim_data(raw_msg)
+    msg_hash = convert_str_to_int_list(msg_hash_b64)
+    padded_member, padded_member_length = get_padded_email(member.email)
+    padded_relayer, padded_relayer_length = get_padded_email(relayer_email)
+
+    emails_and_secrets = [(member.email, member.secret) for member in members]
+    tree = generate_merkle_tree(emails_and_secrets)
+    path_elements, path_indices = tree.gen_proof(index=members.index(member))
+
+    return ApprovalData(
+        header=header,
+        header_length=header_length,
+
+        msg_hash=msg_hash,
+
+        padded_member=padded_member,
+        padded_member_length=padded_member_length,
+        padded_relayer=padded_relayer,
+        padded_relayer_length=padded_relayer_length,
+
+        pubkey_modulus_limbs=pubkey_modulus_limbs,
+        redc_params_limbs=redc_params_limbs,
+        signature=signature_limbs,
+
+        root=str(tree.root),
+        path_elements=path_elements,
+        path_indices=path_indices,
+    )
 
 
-async def store_member_message(uid, msg: MemberMessage, zk_proof: str):
-    # # TODO: store messages to the DB
-    # tx = None
-    # if msg.initial_tx:
-    #     tx = await crud.create_tx(msg.initial_tx)
+async def generate_zk_proof(approval_data: ApprovalData) -> str:
+    # # TODO: launch prover
+    # proc = await asyncio.create_subprocess_exec(
+    #     'bb ...', '-flags',
+    #     stdout=asyncio.subprocess.PIPE,
+    #     stderr=asyncio.subprocess.PIPE)
     #
-    # crud.create_approval(tx, uid, zkproof, msg)
+    # # do something else while ls is working
+    #
+    # # if proc takes very long to complete, the CPUs are free to use   cycles for
+    # # other processes
+    # stdout, stderr = await proc.communicate()
 
-    print(f'UID={uid} DATE={msg.date}')
-    print(f'FROM={msg.member_email}')
-    print(f'MSG_HASH={msg.msg_hash}')
-    print(f'DKIM={msg.dkim_signature}')
-    print(f'TX={msg.initial_tx}')
+    return 'TODO: zk proof'
+
+
+async def store_member_message(uid: int, msg: MemberMessage, zk_proof: str):
+    tx = msg.tx
+    if msg.initial_data and tx or not msg.initial_data and not tx:
+        raise
+
+    if msg.initial_data:
+        tx = await crud.create_tx(msg.initial_data)
+
+    await crud.create_approval(tx, msg.member, zk_proof, uid)
+
+    print(f'UID={uid}')
+    print(f'FROM={msg.member.email}')
+    print(f'TX={tx.id}')
     print(f'ZKPROOF={zk_proof}')
 
 
 async def send_response(msg: MemberMessage):
     await send_email(
-        msg.member_email,
+        msg.member.email,
         subject='Relayer response',
         msg_text='Thank you for your message!',
     )
@@ -257,4 +300,5 @@ async def send_response(msg: MemberMessage):
 if __name__ == '__main__':
     db.init_db()
     loop = asyncio.get_event_loop()
+    # loop.run_until_complete(crud.fill_db())
     loop.run_until_complete(idle_loop(IMAP_HOST, IMAP_PORT, RELAYER_EMAIL))

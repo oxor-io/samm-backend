@@ -47,6 +47,7 @@ class MemberBase(SQLModel):
 
 class Member(MemberBase, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
+    secret: int
 
     samm: Samm = Relationship(back_populates='members')
 
@@ -56,5 +57,5 @@ class MemberPublic(MemberBase):
 
 
 class MemberCreate(MemberBase):
-    pass
+    secret: int
     # TODO: is_active?
