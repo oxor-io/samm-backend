@@ -234,7 +234,7 @@ def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member
 
     emails_and_secrets = [(member.email, member.secret) for member in members]
     tree = generate_merkle_tree(emails_and_secrets)
-    path_elements, path_indices = tree.gen_proof(index=members.index(member))
+    path_elements, path_indices = tree.gen_proof(leaf_pos=members.index(member))
 
     return ApprovalData(
         header=header,
@@ -252,7 +252,7 @@ def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member
         signature=signature_limbs,
 
         root=str(tree.root),
-        path_elements=path_elements,
+        path_elements=[str(i) for i in path_elements],
         path_indices=path_indices,
     )
 

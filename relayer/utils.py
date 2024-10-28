@@ -1,4 +1,4 @@
-from prover.merkle_tree import MerkleTree
+from circomlibpy.merkle_tree import MerkleTree
 
 MAX_PADDED_EMAIL_LEN = 124
 CHUNK_LEN = 31
@@ -27,5 +27,5 @@ def generate_merkle_tree(emails_and_secrets: list[tuple[str, int]]) -> MerkleTre
         email_chunks = [int(email_hex[i * CHUNK_HEX_LEN:i * CHUNK_HEX_LEN + CHUNK_HEX_LEN], 16) for i in range(4)]
         leafs.append(email_chunks + [secret])
 
-    return MerkleTree(TREE_HEIGHT, leafs, leaf_len=len(leafs[0]))
+    return MerkleTree(leafs, height=TREE_HEIGHT)
 

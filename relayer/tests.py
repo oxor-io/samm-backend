@@ -188,10 +188,10 @@ def test_tree_generation():
     ]
 
     tree = generate_merkle_tree(list(zip(TEST_EMAIL_ADDRESSES, TEST_SECRETS)))
-    _path_elements, _path_indices = tree.gen_proof(index=0)
+    _path_elements, _path_indices = tree.gen_proof(leaf_pos=0)
 
     assert str(tree.root) == root
-    assert _path_elements == path_elements
+    assert [str(i) for i in _path_elements] == path_elements
     assert _path_indices == path_indices
 
 
