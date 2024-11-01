@@ -33,6 +33,7 @@ class Samm(SQLModel, table=True):
     chain_id: int
 
     members: list['Member'] = Relationship(back_populates='samm')
+    transactions: list['Transaction'] = Relationship(back_populates='samm')
 
 
 class MemberTransactionLink(SQLModel, table=True):
@@ -65,13 +66,14 @@ class Transaction(SQLModel, table=True):
     data: str
     operation: str
     nonce: int
-    deadline_at: datetime
+    deadline: int
     samm_id: int = Field(foreign_key='samm.id')
     # TODO: set default status
     status: TransactionStatus = Field(sa_column=Column(sa_Enum(TransactionStatus)))
     created_at: datetime
 
     members: list[Member] = Relationship(back_populates='transactions', link_model=MemberTransactionLink)
+    samm: Samm = Relationship(back_populates='transactions')
 
 
 class Approval(SQLModel, table=True):
@@ -84,13 +86,20 @@ class Approval(SQLModel, table=True):
 
 
 @dataclass
+class MailboxCursor:
+    folder: str
+    uid_start: int
+    uid_end: int
+
+
+@dataclass
 class TxData:
     to: str
     value: int
     data: str
     operation: TransactionOperation
     nonce: int
-    deadline: datetime
+    deadline: int
 
 
 @dataclass
@@ -125,14 +134,6 @@ class ApprovalData:
 @dataclass
 class MemberMessage:
     member: Member
-    tx: Transaction
-    initial_data: InitialData
+    tx: Transaction | None
+    initial_data: InitialData | None
     approval_data: ApprovalData
-
-
-@dataclass
-class MessageAttributes:
-    uid: int
-    # flags: list[str]
-    sequence_number: int
-    member_message: MemberMessage | None

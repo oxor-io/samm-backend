@@ -15,4 +15,6 @@ engine = create_engine(sqlite_url, connect_args=connect_args, echo=True)
 
 
 def init_db():
+    # TODO: remove drop_all
+    SQLModel.metadata.drop_all(engine)
     SQLModel.metadata.create_all(engine)

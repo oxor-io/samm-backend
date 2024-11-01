@@ -1,14 +1,99 @@
 #!/usr/bin/env python3
 import asyncio
+from email.parser import BytesParser
 
 from dotenv import load_dotenv
 load_dotenv()
 
+import crud
+import db
 from mailer.dkim_extractor import extract_dkim_data
+from main import parse_member_message
+from main import parse_body
+from main import extract_tx_data
+from models import MemberMessage
+from models import TransactionOperation
 from utils import get_padded_email
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 
+
+approve_eml = \
+b"""DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=oxor.io; s=google; t=1730381274; x=1730986074; darn=yandex.ru;
+        h=to:subject:message-id:date:from:mime-version:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=ToQN7Uh/6z9Z882zr1qbeqB/CPiWSy5x9AwC7dsWzr0=;
+        b=Od56zHSC71fwHSZQ+yMbn5GpYRIXgU7+5h+tufghBRV/ddmx0zy5oZSid1Qivy7fsC
+         klF0s5l332YWPJBCNyCX6OaGkbMu5Fu0B48WkCl/0VqMH19YQ7sqfNeNdjIGzrvMXsKB
+         TD8anJ6WgrxNJmRNqQFjyq2RXzUVezCgC4rXG7O5vWkeFG7GVLC3gv6ffLcPGoP4goXE
+         KxEeTKhjGBezbw5Xl2S0uEnGXIpHZpQLgmJ8x8RoDsj0zHNh1L73tzKVeUwfszRtE9z6
+         TNe1L7vigF5tAOC3Jgnu4qKFKY6ZxJchlWe8b8j80sr594jcl9EEslv/6D22SkiVzb/C
+         bp+A==
+MIME-Version: 1.0
+From: Artem Belozerov <artem@oxor.io>
+Date: Thu, 31 Oct 2024 16:27:42 +0300
+Message-ID: <CAEMY_m35hMnDNLzpfx0S9K=YWYwiH5KOhFYCUO9a5LtWApnqaA@mail.gmail.com>
+Subject: yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68=
+To: oxorio@yandex.ru
+Content-Type: multipart/alternative; boundary="0000000000002943b80625c5c931"
+Return-Path: artem@oxor.io
+X-Yandex-Forward: f531c0e9771039f750d294a362bc131e
+
+--0000000000002943b80625c5c931
+Content-Type: text/plain; charset="UTF-8"
+
+
+
+--0000000000002943b80625c5c931
+Content-Type: text/html; charset="UTF-8"
+
+<div dir="ltr"><br></div>
+
+--0000000000002943b80625c5c931--"""
+
+initial_eml = \
+b"""DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;
+        d=oxor.io; s=google; t=1730461283; x=1731066083; darn=yandex.ru;
+        h=to:subject:message-id:date:from:mime-version:from:to:cc:subject
+         :date:message-id:reply-to;
+        bh=274+/wYEHmdPS8e6lwiI+hPwvQV5s2qxK8/NPvtN93c=;
+        b=HQ7N81hxuOnD1hOCtNRSHJZJ7AC072PvYbn/j5G+CL60gawiUWmpU/LCUQBINscOEO
+         F2R5/L3ccTH2ncllNHt2ZG4yv4OfmRo9AfeZJYdRDAqaEbf6k5knZkd9ocN3Hcg9e/xX
+         9GyMUBW+QkZsK/qU8GIp7sg7fdSlB3W+YZr068Y7vuVHHhwyDqvbDeGD5ea9sPuvv1+S
+         f1aOD3A0O6u2haRzut+Jw7VjBLKaMABnTC03nB7a8YUUjdZ7kFBdOGld/Kr8Ndj+dAWV
+         U8CUjCwM5VmHHitsUmInd6VhYKtZvyREcyK2QYfTCAR1Zgq4gMKNnUNgUKxaSY8mOeov
+         UrMw==
+MIME-Version: 1.0
+From: Artem Belozerov <artem@oxor.io>
+Date: Fri, 1 Nov 2024 14:41:12 +0300
+Message-ID: <CAEMY_m0ZsjP9URUQj_NamVodrSc3N1zb3bwTavrJK2U4fSTwKg@mail.gmail.com>
+Subject: yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68=
+To: oxorio@yandex.ru
+Content-Type: multipart/alternative; boundary="00000000000011c6110625d86a1b"
+Return-Path: artem@oxor.io
+X-Yandex-Forward: f531c0e9771039f750d294a362bc131e
+
+--00000000000011c6110625d86a1b
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+samm_id=3D1;to=3D0x07a565b7ed7d7a678680a4c162885bedbb695fe0;value=3D5000111=
+390000000000;data=3D0xa9059cbb0000000000000000000000003f5047bdb647dc39c8862=
+5e17bdbffee905a9f4400000000000000000000000000000000000000000000011c9a62d04e=
+d0c80000;operation=3DCALL;nonce=3D34344;deadline=3D123123123123;
+
+--00000000000011c6110625d86a1b
+Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+
+<div dir=3D"ltr">samm_id=3D1;to=3D0x07a565b7ed7d7a678680a4c162885bedbb695fe=
+0;value=3D5000111390000000000;data=3D0xa9059cbb0000000000000000000000003f50=
+47bdb647dc39c88625e17bdbffee905a9f44000000000000000000000000000000000000000=
+00000011c9a62d04ed0c80000;operation=3DCALL;nonce=3D34344;deadline=3D1231231=
+23123;<br></div>
+
+--00000000000011c6110625d86a1b--"""
 
 demo_eml = \
 b"""DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=icloud.com; s=1a1hai; t=1729173732; bh=tT+TucubgvFM8RdXdC2h4AY1qF+wUY+Hvp7ydoZaHH8=; h=To:From:Subject:Date:Message-Id:Content-Type:MIME-Version; b=klBw8OFqfvvj87jKIb/MXkkSKK/TDPHzZG4cZRyZ1BzA+fzpsy7j1iDBzC8B1Y52U
@@ -27,6 +112,41 @@ MIME-Version: 1.0
 
 test test
 """
+
+
+def _create_test_body(samm_id: int) -> str:
+    tx_to = '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
+    tx_value = 5000111390000000000
+    tx_data = '0xa9059cbb'\
+           '0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
+           '00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
+    tx_operation = TransactionOperation.call.value
+    tx_nonce = 34344
+    tx_deadline = 123123123123
+    body = f'samm_id={samm_id};'\
+           f'to={tx_to};'\
+           f'value={tx_value};'\
+           f'data={tx_data};'\
+           f'operation={tx_operation};'\
+           f'nonce={tx_nonce};'\
+           f'deadline={tx_deadline};'
+    return body
+
+
+def test_parse_body():
+    msg = BytesParser().parsebytes(initial_eml)
+    body = parse_body(msg)
+    samm_id, tx_data = extract_tx_data(body)
+
+    assert samm_id == 1
+    assert tx_data.to == '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
+    assert tx_data.value == 5000111390000000000
+    assert tx_data.data == '0xa9059cbb'\
+                           '0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
+                           '00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
+    assert tx_data.operation == TransactionOperation.call
+    assert tx_data.nonce == 34344
+    assert tx_data.deadline == 123123123123
 
 
 async def test_dkmi_extraction():
@@ -195,8 +315,50 @@ def test_tree_generation():
     assert _path_indices == path_indices
 
 
+async def test_parse_member_initial_message():
+    db.init_db()
+    samm = await crud.fill_db_initial_tx(first_user_email='artem@oxor.io')
+
+    uid: int = 123
+    member_message: MemberMessage = await parse_member_message(uid, initial_eml)
+
+    assert member_message.member.email == 'artem@oxor.io'
+    assert member_message.tx is None
+    assert member_message.initial_data is not None
+    assert member_message.approval_data is not None
+
+    assert member_message.initial_data.samm_id == samm.id
+    assert member_message.initial_data.msg_hash == 'yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68='
+    assert member_message.initial_data.tx_data.to == '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
+    assert member_message.initial_data.tx_data.value == 5000111390000000000
+    assert member_message.initial_data.tx_data.data == '0xa9059cbb'\
+           '0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
+           '00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
+    assert member_message.initial_data.tx_data.operation == TransactionOperation.call.value
+    assert member_message.initial_data.tx_data.nonce == 34344
+    assert member_message.initial_data.tx_data.deadline == 123123123123
+    assert len(member_message.initial_data.members) == 4
+    assert member_message.initial_data.members[0].email == 'artem@oxor.io'
+
+
+async def test_parse_member_approval_message():
+    db.init_db()
+    await crud.fill_db_approval_tx(first_user_email='artem@oxor.io')
+    uid: int = 123
+
+    member_message: MemberMessage = await parse_member_message(uid, approve_eml)
+
+    assert member_message.member.email == 'artem@oxor.io'
+    assert member_message.tx.msg_hash == 'yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68='
+    assert member_message.initial_data is None
+    assert member_message.approval_data is not None
+
+
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()
+    test_parse_body()
+    loop.run_until_complete(test_parse_member_initial_message())
+    loop.run_until_complete(test_parse_member_approval_message())
     loop.run_until_complete(test_dkmi_extraction())
     loop.run_until_complete(test_padded_emails())
     loop.run_until_complete(test_msg_hash_convert())
