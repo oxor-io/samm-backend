@@ -21,6 +21,10 @@ class TransactionStatus(str, Enum):
     success = 'success'
     failed = 'failed'
 
+@dataclass
+class Sequence:
+    index: int
+    length: int
 
 class Samm(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
@@ -120,6 +124,11 @@ class ApprovalData:
     root: str
     path_elements: list[str]
     path_indices: list[int]
+
+    from_seq: Sequence
+    member_seq: Sequence
+    to_seq: Sequence
+    relayer_seq: Sequence
 
 
 @dataclass

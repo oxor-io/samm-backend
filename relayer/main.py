@@ -27,6 +27,7 @@ from models import TxData
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import get_padded_email
+from utils import generate_sequences
 
 
 # https://github.com/bamthomas/aioimaplib
@@ -236,6 +237,9 @@ def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member
     tree = generate_merkle_tree(emails_and_secrets)
     path_elements, path_indices = tree.gen_proof(leaf_pos=members.index(member))
 
+    # calculate sequences
+    from_seq, member_seq, to_seq, relayer_seq = generate_sequences(header, header_length, member.email, relayer_email)
+
     return ApprovalData(
         header=header,
         header_length=header_length,
@@ -254,6 +258,11 @@ def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member
         root=str(tree.root),
         path_elements=[str(i) for i in path_elements],
         path_indices=path_indices,
+
+        from_seq=from_seq,
+        member_seq=member_seq,
+        to_seq=to_seq,
+        relayer_seq=relayer_seq,
     )
 
 
