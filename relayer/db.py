@@ -3,9 +3,9 @@ from sqlmodel import SQLModel
 from sqlalchemy.ext.asyncio import create_async_engine
 
 # sqlite_file_name = 'database.db'
-# sqlite_url = f'sqlite:///{sqlite_file_name}'
+# sqlite_url = f'sqlite+aiosqlite:///{sqlite_file_name}'
 # connect_args = {'check_same_thread': False}
-# engine = create_engine(sqlite_url, connect_args=connect_args, echo=True)
+# engine = create_async_engine(sqlite_url, connect_args=connect_args, echo=True)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
 # echo=True to see the generated SQL queries in the terminal

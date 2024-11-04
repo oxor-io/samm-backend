@@ -3,3 +3,5 @@ sqlmodel==0.0.22
 fastapi-cli==0.0.5
 pydantic[email]==2.9.2
 asyncpg==0.30.0
+aiosqlite==0.20.0
+greenlet==3.1.1

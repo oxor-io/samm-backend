@@ -55,7 +55,7 @@ async def create_approval(tx: Transaction, member: Member, zk_proof: str, uid: i
 
 async def get_members_by_samm(samm_id: int):
     async with AsyncSession(engine) as session:
-        statement = select(Member).where(Member.samm_id == samm_id)
+        statement = select(Member).where(Member.samms.any(id=samm_id))
         results = await session.scalars(statement)
         return results.all()
 
@@ -108,7 +108,6 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             expiration_period=int(datetime(2027, 1, 1).replace(tzinfo=timezone.utc).timestamp()),
             chain_id=1,
         )
-        session.add(samm)
 
         m1 = Member(samm=samm, email=first_user_email, is_active=True, secret=111)
         m2 = Member(samm=samm, email='asd@gmail.com', is_active=True, secret=222)
@@ -119,6 +118,12 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
         session.add(m2)
         session.add(m3)
         session.add(m4)
+
+        samm.members.append(m1)
+        samm.members.append(m2)
+        samm.members.append(m3)
+        samm.members.append(m4)
+        session.add(samm)
 
         await session.commit()
         await session.refresh(samm)
@@ -136,7 +141,6 @@ async def fill_db_approval_tx(first_user_email: str):
             expiration_period=int(datetime(2027, 1, 1).replace(tzinfo=timezone.utc).timestamp()),
             chain_id=1,
         )
-        session.add(samm)
 
         m1 = Member(samm=samm, email=first_user_email, is_active=True, secret=111)
         m2 = Member(samm=samm, email='asd@gmail.com', is_active=True, secret=222)
@@ -160,6 +164,12 @@ async def fill_db_approval_tx(first_user_email: str):
         session.add(m2)
         session.add(m3)
         session.add(m4)
+
+        samm.members.append(m1)
+        samm.members.append(m2)
+        samm.members.append(m3)
+        samm.members.append(m4)
+        session.add(samm)
 
         tx.members.append(m1)
         tx.members.append(m2)

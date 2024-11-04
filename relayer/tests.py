@@ -316,7 +316,7 @@ def test_tree_generation():
 
 
 async def test_parse_member_initial_message():
-    db.init_db()
+    await db.init_db()
     samm = await crud.fill_db_initial_tx(first_user_email='artem@oxor.io')
 
     uid: int = 123
@@ -342,7 +342,7 @@ async def test_parse_member_initial_message():
 
 
 async def test_parse_member_approval_message():
-    db.init_db()
+    await db.init_db()
     await crud.fill_db_approval_tx(first_user_email='artem@oxor.io')
     uid: int = 123
 
