@@ -10,12 +10,13 @@ services:
     depends_on:
       - db
     environment:
-      # # Used in IMAP_SECRETS_FILE
+      # # Used in RELAYER_SECRETS_FILE
       # SMTP_HOST: smtp.yandex.com
       # SMTP_PORT: 465
       # IMAP_HOST: imap.yandex.ru
       # IMAP_PORT: 993
-      IMAP_SECRETS_FILE: /run/secrets/relayer_env
+      RELAYER_SECRETS_FILE: /run/secrets/relayer_env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/foo
     secrets:
       - relayer_env
 

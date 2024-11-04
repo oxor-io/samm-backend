@@ -3,7 +3,6 @@ import asyncio
 import os
 import re
 import quopri
-from dataclasses import dataclass
 from email.message import Message
 from email.parser import BytesParser
 from email.utils import parseaddr
@@ -12,8 +11,8 @@ from itertools import batched
 import dkim
 from aioimaplib import aioimaplib
 from dotenv import load_dotenv
-IMAP_SECRETS_FILE = os.environ.get('IMAP_SECRETS_FILE')
-load_dotenv(IMAP_SECRETS_FILE or '.env')
+RELAYER_SECRETS_FILE = os.environ.get('RELAYER_SECRETS_FILE')
+load_dotenv(RELAYER_SECRETS_FILE or '.env')
 
 import db
 import crud
@@ -126,7 +125,7 @@ async def process_imap_messages(lines: list) -> int:
         # flags=FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal).group('flags'),
         # sequence_number: int = FETCH_MESSAGE_DATA_SEQNUM.match(fetch_command_without_literal).group('seqnum')
 
-        # # Just print from/to/subject of the emails
+        # # Just print from/to/subject of received emails
         # msg: Message = BytesParser().parsebytes(raw_msg)
         # _, member_email = parseaddr(msg['From'])
         # _, relayer_email = parseaddr(msg['To'])
@@ -143,6 +142,7 @@ async def process_imap_messages(lines: list) -> int:
         if member_message:
             zk_proof = await generate_zk_proof(member_message.approval_data)
             await store_member_message(uid, member_message, zk_proof)
+            # TODO: execute transaction if threshold reached
             # TODO: notice all members if the new tx is received
             await send_response(member_message)
 
@@ -275,6 +275,8 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
         print('Tx data extraction is failed: ', e)
         return None, None
 
+    # TODO: check tx_data fields
+
 
 async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
     header, header_length, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_dkim_data(raw_msg)
@@ -348,8 +350,8 @@ async def send_response(msg: MemberMessage):
 
 
 if __name__ == '__main__':
-    db.init_db()
     loop = asyncio.get_event_loop()
-    # TODO: debug
+    loop.run_until_complete(db.init_db())
+    # TODO: remove or refactor the fill_db_initial_tx function before release
     loop.run_until_complete(crud.fill_db_initial_tx(first_user_email='artem@oxor.io'))
     loop.run_until_complete(idle_loop(IMAP_HOST, IMAP_PORT, RELAYER_EMAIL))

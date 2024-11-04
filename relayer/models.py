@@ -4,6 +4,7 @@ from enum import Enum
 
 from sqlmodel import Field, SQLModel, Column
 from pydantic import EmailStr
+from sqlalchemy import BigInteger
 from sqlalchemy import String
 from sqlalchemy import Enum as sa_Enum
 from sqlmodel import Relationship
@@ -56,17 +57,18 @@ class Member(SQLModel, table=True):
 
     samm: Samm = Relationship(back_populates='members')
     transactions: list['Transaction'] = Relationship(back_populates='members', link_model=MemberTransactionLink)
+    approvals: list['Approval'] = Relationship(back_populates='member')
 
 
 class Transaction(SQLModel, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
     msg_hash: str
     to: str
-    value: int
+    value: int = Field(sa_column=Column(BigInteger()))
     data: str
     operation: str
     nonce: int
-    deadline: int
+    deadline: int = Field(sa_column=Column(BigInteger()))
     samm_id: int = Field(foreign_key='samm.id')
     # TODO: set default status
     status: TransactionStatus = Field(sa_column=Column(sa_Enum(TransactionStatus)))
@@ -83,6 +85,8 @@ class Approval(SQLModel, table=True):
     proof: str
     created_at: datetime
     email_uid: int
+
+    member: Member = Relationship(back_populates='approvals')
 
 
 @dataclass

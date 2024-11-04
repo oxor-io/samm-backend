@@ -1,7 +1,7 @@
 from datetime import datetime
 from datetime import timezone
-from sqlmodel import Session
 from sqlmodel import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import engine
 from models import Approval
@@ -29,10 +29,10 @@ async def create_tx(initial_data: InitialData) -> Transaction:
         # NOTE: order is matter
         members=initial_data.members,
     )
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         session.add(tx)
-        session.commit()
-        session.refresh(tx)
+        await session.commit()
+        await session.refresh(tx)
 
     return tx
 
@@ -45,60 +45,60 @@ async def create_approval(tx: Transaction, member: Member, zk_proof: str, uid: i
         created_at=datetime.now(),
         email_uid=uid,
     )
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         session.add(approval)
-        session.commit()
-        session.refresh(approval)
+        await session.commit()
+        await session.refresh(approval)
 
     return approval
 
 
 async def get_members_by_samm(samm_id: int):
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Member).where(Member.samm_id == samm_id)
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.all()
 
 
 async def get_members_by_tx(tx_id: int):
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Member).where(Member.transactions.any(id=tx_id))
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.all()
 
 
 async def get_member_by_email(member_email: str) -> Member:
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Member).where(Member.email == member_email)
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.first()
 
 
 async def get_tx_by_msg_hash(msg_hash: str) -> Transaction:
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Transaction).where(Transaction.msg_hash == msg_hash)
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.first()
 
 
 async def get_approval_by_uid(email_uid: int) -> Approval:
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Approval).where(Approval.email_uid == email_uid)
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.first()
 
 
 async def get_approval_by_tx_and_email(tx_id: int, member_id: int) -> Approval:
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         statement = select(Approval).where(
             (Approval.transaction_id == tx_id) and (Approval.member_id == member_id)
         )
-        results = session.exec(statement)
+        results = await session.scalars(statement)
         return results.first()
 
 
 async def fill_db_initial_tx(first_user_email: str) -> Samm:
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         samm = Samm(
             samm_address='qwe123',
             safe_address='asd123',
@@ -120,13 +120,13 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
         session.add(m3)
         session.add(m4)
 
-        session.commit()
-        session.refresh(samm)
+        await session.commit()
+        await session.refresh(samm)
     return samm
 
 
 async def fill_db_approval_tx(first_user_email: str):
-    with Session(engine) as session:
+    async with AsyncSession(engine) as session:
         samm = Samm(
             samm_address='qwe123',
             safe_address='asd123',
@@ -166,4 +166,4 @@ async def fill_db_approval_tx(first_user_email: str):
         tx.members.append(m3)
         tx.members.append(m4)
         session.add(tx)
-        session.commit()
+        await session.commit()

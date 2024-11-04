@@ -6,3 +6,4 @@ sqlmodel==0.0.22
 pydantic[email]==2.9.2
 aiodns==3.2.0
 circomlibpy==1.0.0
+asyncpg==0.30.0
