@@ -122,12 +122,13 @@ async def get_transactions(
     return transactions
 
 
-@router.get('/approvals/', response_model=list[ApprovalPublic])
+@router.get('/transactions/{transaction_id}/approvals/', response_model=list[ApprovalPublic])
 async def get_approvals(
+        transaction_id: int,
         session: AsyncSession = Depends(get_session),
         offset: int = 0,
         limit: int = Query(default=100, le=100),
 ):
-    statement = select(Approval).offset(offset).limit(limit)
+    statement = select(Approval).where(Approval.transaction_id == transaction_id).offset(offset).limit(limit)
     approvals = (await session.scalars(statement)).all()
     return approvals
