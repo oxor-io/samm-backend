@@ -114,6 +114,7 @@ class ApprovalData:
 
     padded_member: list[int]
     padded_member_length: int
+    secret: int
     padded_relayer: list[int]
     padded_relayer_length: int
 
