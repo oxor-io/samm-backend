@@ -109,7 +109,7 @@ async def process_imap_messages(lines: list) -> tuple[int, list[MessageAttribute
 
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
         if member_message:
-            zk_proof = await generate_zk_proof(member_message.approval_data)
+            _, _, zk_proof = await generate_zk_proof(member_message.approval_data)
             await store_member_message(uid, member_message, zk_proof)
             # TODO: notice all members if the new tx is received
             await send_response(member_message)
@@ -308,7 +308,19 @@ async def generate_zk_proof(approval_data: ApprovalData) -> str:
     await process.wait()
     print('Generating proof... ✅')
 
-    return 'TODO: zk proof'
+    # read proof and split to public inputs, outputs (commit, pubkeyHash) and proof itself
+    data = b''
+    with open('./target/proof', 'rb') as file:
+        data = file.read()
+    
+    # first output
+    commit = data[5540:5572].hex()
+    # second output
+    pubkeyHash = data[5572:5604].hex()
+    # proof
+    proof = data[4:100].hex() + data[5604:].hex()
+
+    return commit, pubkeyHash, proof
 
 
 async def store_member_message(uid: int, msg: MemberMessage, zk_proof: str):

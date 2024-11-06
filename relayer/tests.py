@@ -273,10 +273,6 @@ async def test_prover():
 
     zk_proof = await generate_zk_proof(approval_data)
 
-    print(zk_proof)
-
-    print("end proof")
-
 
 
 if __name__ == '__main__':
