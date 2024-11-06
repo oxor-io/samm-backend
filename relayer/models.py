@@ -4,6 +4,7 @@ from enum import Enum
 
 from sqlmodel import Field, SQLModel, Column
 from pydantic import EmailStr
+from sqlalchemy import BigInteger
 from sqlalchemy import String
 from sqlalchemy import Enum as sa_Enum
 from sqlmodel import Relationship
@@ -26,6 +27,16 @@ class Sequence:
     index: int
     length: int
 
+class SammMemberLink(SQLModel, table=True):
+    samm_id: int | None = Field(default=None, foreign_key='samm.id', primary_key=True)
+    member_id: int | None = Field(default=None, foreign_key='member.id', primary_key=True)
+
+
+class MemberTransactionLink(SQLModel, table=True):
+    member_id: int | None = Field(default=None, foreign_key='member.id', primary_key=True)
+    transaction_id: int | None = Field(default=None, foreign_key='transaction.id', primary_key=True)
+
+
 class Samm(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     nonce: int | None = Field(default=0)
@@ -36,12 +47,8 @@ class Samm(SQLModel, table=True):
     root: str
     chain_id: int
 
-    members: list['Member'] = Relationship(back_populates='samm')
-
-
-class MemberTransactionLink(SQLModel, table=True):
-    member_id: int | None = Field(default=None, foreign_key='member.id', primary_key=True)
-    transaction_id: int | None = Field(default=None, foreign_key='transaction.id', primary_key=True)
+    members: list['Member'] = Relationship(back_populates='samms', link_model=SammMemberLink)
+    transactions: list['Transaction'] = Relationship(back_populates='samm')
 
 
 class Member(SQLModel, table=True):
@@ -53,29 +60,30 @@ class Member(SQLModel, table=True):
         nullable=False,
         description='The email of the user',
     )
-    samm_id: int = Field(foreign_key='samm.id')
     is_active: bool
     secret: int
 
-    samm: Samm = Relationship(back_populates='members')
+    samms: list[Samm] = Relationship(back_populates='members', link_model=SammMemberLink)
     transactions: list['Transaction'] = Relationship(back_populates='members', link_model=MemberTransactionLink)
+    approvals: list['Approval'] = Relationship(back_populates='member')
 
 
 class Transaction(SQLModel, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
     msg_hash: str
     to: str
-    value: int
+    value: int = Field(sa_column=Column(BigInteger()))
     data: str
     operation: str
     nonce: int
-    deadline_at: datetime
+    deadline: int = Field(sa_column=Column(BigInteger()))
     samm_id: int = Field(foreign_key='samm.id')
     # TODO: set default status
     status: TransactionStatus = Field(sa_column=Column(sa_Enum(TransactionStatus)))
     created_at: datetime
 
     members: list[Member] = Relationship(back_populates='transactions', link_model=MemberTransactionLink)
+    samm: Samm = Relationship(back_populates='transactions')
 
 
 class Approval(SQLModel, table=True):
@@ -86,6 +94,15 @@ class Approval(SQLModel, table=True):
     created_at: datetime
     email_uid: int
 
+    member: Member = Relationship(back_populates='approvals')
+
+
+@dataclass
+class MailboxCursor:
+    folder: str
+    uid_start: int
+    uid_end: int
+
 
 @dataclass
 class TxData:
@@ -94,7 +111,7 @@ class TxData:
     data: str
     operation: TransactionOperation
     nonce: int
-    deadline: datetime
+    deadline: int
 
 
 @dataclass
@@ -135,14 +152,6 @@ class ApprovalData:
 @dataclass
 class MemberMessage:
     member: Member
-    tx: Transaction
-    initial_data: InitialData
+    tx: Transaction | None
+    initial_data: InitialData | None
     approval_data: ApprovalData
-
-
-@dataclass
-class MessageAttributes:
-    uid: int
-    # flags: list[str]
-    sequence_number: int
-    member_message: MemberMessage | None

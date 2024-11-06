@@ -2,15 +2,23 @@ version: '3.8'
 
 services:
 
-#  relayer:
-#    build: ./relayer
-#    command: python main.py
-#    volumes:
-#      - ./relayer:/usr/src/app
-#    depends_on:
-#      - db
-
-#  blockchain:
+  relayer:
+    build: ./relayer
+    command: python main.py
+    volumes:
+      - ./relayer:/usr/src/app
+    depends_on:
+      - db
+    environment:
+      # # Used in RELAYER_SECRETS_FILE
+      # SMTP_HOST: smtp.yandex.com
+      # SMTP_PORT: 465
+      # IMAP_HOST: imap.yandex.ru
+      # IMAP_PORT: 993
+      RELAYER_SECRETS_FILE: /run/secrets/relayer_env
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/foo
+    secrets:
+      - relayer_env
 
   web:
     build: ./web
@@ -32,3 +40,7 @@ services:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=foo
+
+secrets:
+  relayer_env:
+    file: .env

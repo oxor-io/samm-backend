@@ -8,8 +8,8 @@ app.include_router(router)
 
 
 @app.on_event('startup')
-def on_startup():
-    init_db()
+async def on_startup():
+    await init_db()
 
 
 @app.get('/ping')

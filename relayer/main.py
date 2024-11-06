@@ -2,7 +2,7 @@
 import asyncio
 import os
 import re
-from datetime import datetime
+import quopri
 from email.message import Message
 from email.parser import BytesParser
 from email.utils import parseaddr
@@ -12,7 +12,8 @@ import json
 import dkim
 from aioimaplib import aioimaplib
 from dotenv import load_dotenv
-load_dotenv()
+RELAYER_SECRETS_FILE = os.environ.get('RELAYER_SECRETS_FILE')
+load_dotenv(RELAYER_SECRETS_FILE or '.env')
 
 import db
 import crud
@@ -21,8 +22,8 @@ from mailer.sender import send_email
 from models import ApprovalData
 from models import InitialData
 from models import Member
-from models import MessageAttributes
 from models import MemberMessage
+from models import MailboxCursor
 from models import TransactionOperation
 from models import TxData
 from utils import convert_str_to_int_list
@@ -50,7 +51,12 @@ FETCH_MESSAGE_DATA_SEQNUM = re.compile(rb'(?P<seqnum>\d+) FETCH.*')
 FETCH_MESSAGE_DATA_UID = re.compile(rb'.*UID (?P<uid>\d+).*')
 FETCH_MESSAGE_DATA_FLAGS = re.compile(rb'.*FLAGS \((?P<flags>.*?)\).*')
 
-CHUNK_SIZE = 10
+CHUNK_SIZE = 100
+
+CURSORS = [
+    MailboxCursor(folder='Spam', uid_start=95, uid_end=95 + CHUNK_SIZE),
+    MailboxCursor(folder='INBOX', uid_start=250, uid_end=250 + CHUNK_SIZE),
+]
 
 
 async def idle_loop(host, port, user):
@@ -61,100 +67,130 @@ async def idle_loop(host, port, user):
     resp = await imap_client.xoauth2(user, RELAYER_TOKEN)
     print(f'Auth: {resp}')
 
-    resp = await imap_client.select()
-    print(f'Select mail folder: {resp}')
+    # resp = await imap_client.list('INBOX\\', '*')
+    # print(f'List mail folder: {resp}')
 
-    uid_start = 1
-    uid_end = CHUNK_SIZE
+    cursor = CURSORS[0]
+    switch_folder = True
+
     while True:
-        # TODO: pagination?
-        uid_range = f'{uid_start}:{uid_end}'
-        resp = await imap_client.uid(FETCH_COMMAND, uid_range, FETCH_CRITERIA_PARTS)
-        print(f'Fetch mails UIDs={uid_range} (lines={len(resp.lines)} / 3)')
+        if switch_folder:
+            idx = CURSORS.index(cursor)
+            cursor = CURSORS[0] if (idx + 1) >= len(CURSORS) else CURSORS[idx + 1]
+            resp = await imap_client.select(cursor.folder)
+            switch_folder = False
+            print(f'Select mail folder: folder={cursor.folder} resp={resp}')
 
-        if resp.result != 'OK':
-            raise
-
-        uid_max, messages_attrs = await process_imap_messages(resp.lines)
-        print(f'Fetched uid_max={uid_max}')
-
-        idle = await imap_client.idle_start(timeout=60)
-        print(f'IDLE resp: {idle}')
-
-        resp = await imap_client.wait_server_push()
-        print(f'QUEUE resp: {resp}')
-
-        imap_client.idle_done()
-
-        if uid_max == uid_end:
-            uid_start += CHUNK_SIZE
-            uid_end += CHUNK_SIZE
-        elif uid_max != 0:
-            uid_start = uid_max + 1
-            uid_end = uid_max + CHUNK_SIZE
-
-        await asyncio.wait_for(idle, 30)
+        uid_max = await fetch_imap_messages(imap_client, cursor.uid_start, cursor.uid_end)
+        match uid_max:
+            case 0:
+                switch_folder = True
+            case cursor.uid_end:
+                cursor.uid_start += CHUNK_SIZE
+                cursor.uid_end += CHUNK_SIZE
+                switch_folder = True
+            case _:
+                cursor.uid_start = uid_max + 1
+                cursor.uid_end = uid_max + CHUNK_SIZE
 
 
-async def process_imap_messages(lines: list) -> tuple[int, list[MessageAttributes]]:
+async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
+    resp = await imap_client.uid(FETCH_COMMAND, f'{uid_start}:{uid_end}', FETCH_CRITERIA_PARTS)
+    print(f'Fetch mails UIDs={uid_start}:{uid_end} (lines={len(resp.lines)} / 3)')
+
+    if resp.result != 'OK':
+        print(f'Fetch command return an error: {resp}')
+        raise
+
+    uid_max = await process_imap_messages(resp.lines)
+    print(f'Fetched uid_max={uid_max}')
+
+    idle = await imap_client.idle_start(timeout=20)
+    print(f'IDLE resp: {idle}')
+
+    resp = await imap_client.wait_server_push()
+    print(f'QUEUE resp: {resp}')
+
+    imap_client.idle_done()
+
+    await asyncio.wait_for(idle, 30)
+
+    return uid_max
+
+
+async def process_imap_messages(lines: list) -> int:
     uid_max = 0
-    messages_attrs: list[MessageAttributes] = []
 
     for start, raw_msg, end in batched(lines[:-1], 3):
         fetch_command_without_literal = b'%s %s' % (start, end)
         uid: int = int(FETCH_MESSAGE_DATA_UID.match(fetch_command_without_literal).group('uid'))
         # flags=FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal).group('flags'),
-        sequence_number: int = FETCH_MESSAGE_DATA_SEQNUM.match(fetch_command_without_literal).group('seqnum')
+        # sequence_number: int = FETCH_MESSAGE_DATA_SEQNUM.match(fetch_command_without_literal).group('seqnum')
+
+        # # Just print from/to/subject of received emails
+        # msg: Message = BytesParser().parsebytes(raw_msg)
+        # _, member_email = parseaddr(msg['From'])
+        # _, relayer_email = parseaddr(msg['To'])
+        # msg_hash = msg['Subject']
+        # print(f'Raw message is parsed: uid={uid} from={member_email} to={relayer_email} subj={msg_hash}')
+        # if uid > uid_max:
+        #     uid_max = uid
+        # continue
+
+        print(f'Parse raw message: UID={uid}')
         member_message = await parse_member_message(uid, raw_msg)
 
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
         if member_message:
             _, _, zk_proof = await generate_zk_proof(member_message.approval_data)
             await store_member_message(uid, member_message, zk_proof)
+            # TODO: execute transaction if threshold reached
             # TODO: notice all members if the new tx is received
             await send_response(member_message)
-
-        messages_attrs.append(MessageAttributes(
-            uid=uid,
-            # flags=flags,
-            sequence_number=sequence_number,
-            member_message=member_message,
-        ))
 
         if uid > uid_max:
             uid_max = uid
 
-    return uid_max, messages_attrs
+    return uid_max
 
 
 async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None:
     # verify DKIM
+    print('Verify DKIM')
     if not await dkim.verify_async(raw_msg):
         print('DKIM is not valid')
         return None
 
     # parse email message
+    print('Parse raw message')
     msg: Message = BytesParser().parsebytes(raw_msg)
     _, member_email = parseaddr(msg['From'])
     _, relayer_email = parseaddr(msg['To'])
     msg_hash = msg['Subject']
+    print(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
 
     if relayer_email != RELAYER_EMAIL:
         print(f'Email To does not belong to Relayer {relayer_email} != {RELAYER_EMAIL}')
         return None
 
-    # TODO: check msgHash format
+    print('Check msg_hash')
+    # # TODO: check msgHash format
+    # pattern = re.compile(r'\b[0-9a-fA-F]{64}\b')
+    # match = re.match(pattern, 'hash')
+    # print(match.group(0))  # hash
     if not msg_hash:
         print(f'msgHash format is not correct: {msg_hash}')
         return None
 
     # TODO: what the samm_id is used?
+    print('Check member FROM email')
     member = await crud.get_member_by_email(member_email)
     if not member:
         print(f'Email From is not a member: {member_email}')
         return None
 
     # TODO: optimize via IMAP server flags
+    print('Check already processed message UID')
     if await crud.get_approval_by_uid(email_uid=uid):
         print(f'The email UID already was registered: {uid}')
         # TODO: mb raise
@@ -163,11 +199,13 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
     initial_data: InitialData | None = None
     tx = await crud.get_tx_by_msg_hash(msg_hash)
     if not tx:
-        # TX initialization
+        print('Transaction initialization')
+
         body = parse_body(msg)
         samm_id, tx_data = extract_tx_data(body)
         if not samm_id or not tx_data:
-            raise
+            print(f'Wrong initial data: body={body}')
+            return None
         members = await crud.get_members_by_samm(samm_id)
         initial_data = InitialData(
             samm_id=samm_id,
@@ -176,14 +214,16 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
             members=members,
         )
     else:
-        # TX approval
+        print('Transaction approval')
+
         # TODO: check tx_status or deadline if approval
         if await crud.get_approval_by_tx_and_email(tx_id=tx.id, member_id=member.id):
             print(f'Dublicate approval: tx={tx.id} member={member.id}')
             return None
         members = await crud.get_members_by_tx(tx.id)
 
-    approval_data = create_approval_data(raw_msg, msg_hash, members, member, relayer_email)
+    print('Assemble approval data')
+    approval_data = await create_approval_data(raw_msg, msg_hash, members, member, relayer_email)
     return MemberMessage(
         member=member,
         tx=tx,
@@ -200,9 +240,12 @@ def parse_body(msg: Message) -> str:
     for part in msg.walk():
         c_type = part.get_content_type()
         c_disposition = str(part.get('Content-Disposition'))
+        c_transfer_encoding = str(part.get('Content-Transfer-Encoding'))
 
         # skip any text/plain (txt) attachments
         if c_type == 'text/plain' and 'attachment' not in c_disposition:
+            if c_transfer_encoding == 'quoted-printable':
+                return quopri.decodestring(part.get_payload().encode()).decode()
             return part.get_payload()
 
     return ''
@@ -210,8 +253,14 @@ def parse_body(msg: Message) -> str:
 
 def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
     # TODO: extraction format
-    m = re.match(r'samm_id=(?P<samm_id>.*); to=(?P<to>.*); value=(?P<value>.*); data=(?P<data>.*);'
-                 r' operation=(?P<operation>.*); nonce=(?P<nonce>.*); deadline=(?P<deadline>.*);', body)
+    # TODO: newline character is not taken into account!
+    m = re.match(r'samm_id=(?P<samm_id>.*);'
+                 r'to=(?P<to>.*);'
+                 r'value=(?P<value>.*);'
+                 r'data=(?P<data>.*);'
+                 r'operation=(?P<operation>.*);'
+                 r'nonce=(?P<nonce>.*);'
+                 r'deadline=(?P<deadline>.*);', body)
     try:
         return (
             int(m.group('samm_id')),
@@ -221,15 +270,18 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
                 data=str(m.group('data')),
                 operation=TransactionOperation(m.group('operation')),
                 nonce=int(m.group('nonce')),
-                deadline=datetime.strptime(str(m.group('deadline')), '%Y-%m-%d %H:%M'),
+                deadline=int(m.group('deadline')),
             )
         )
-    except (AttributeError, ValueError):  # no match or failed conversion
+    except (AttributeError, ValueError) as e:  # no match or failed conversion
+        print('Tx data extraction is failed: ', e)
         return None, None
 
+    # TODO: check tx_data fields
 
-def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
-    header, header_length, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = extract_dkim_data(raw_msg)
+
+async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
+    header, header_length, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_dkim_data(raw_msg)
     msg_hash = convert_str_to_int_list(msg_hash_b64)
     padded_member, padded_member_length = get_padded_email(member.email)
     padded_relayer, padded_relayer_length = get_padded_email(relayer_email)
@@ -348,7 +400,8 @@ async def send_response(msg: MemberMessage):
 
 
 if __name__ == '__main__':
-    db.init_db()
     loop = asyncio.get_event_loop()
-    # loop.run_until_complete(crud.fill_db())
+    loop.run_until_complete(db.init_db())
+    # TODO: remove or refactor the fill_db_initial_tx function before release
+    loop.run_until_complete(crud.fill_db_initial_tx(first_user_email='artem@oxor.io'))
     loop.run_until_complete(idle_loop(IMAP_HOST, IMAP_PORT, RELAYER_EMAIL))
