@@ -1,0 +1,15 @@
+{
+  "name": "samm_relayer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "",
+  "type": "module",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@noir-lang/backend_barretenberg": "0.35.0",
+    "@noir-lang/noir_js": "0.35.0"
+  }
+}
