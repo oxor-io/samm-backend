@@ -98,7 +98,7 @@ class TransactionBase(SQLModel):
     msg_hash: str
     to: str
     value: int = Field(sa_column=Column(BigInteger()))
-    data: str
+    data: bytes
     operation: str
     nonce: int
     deadline: int = Field(sa_column=Column(BigInteger()))
@@ -121,7 +121,11 @@ class TransactionPublic(TransactionBase):
 
 class ApprovalBase(SQLModel):
     transaction_id: int = Field(foreign_key='transaction.id')
-    proof: str
+    proof: bytes
+    commit: bytes
+    domain: str
+    pubkey_hash: bytes
+    is_2048_sig: bool
     created_at: datetime
 
 

@@ -69,7 +69,7 @@ class Transaction(SQLModel, table=True):
     msg_hash: str
     to: str
     value: int = Field(sa_column=Column(BigInteger()))
-    data: str
+    data: bytes
     operation: str
     nonce: int
     deadline: int = Field(sa_column=Column(BigInteger()))
@@ -86,7 +86,11 @@ class Approval(SQLModel, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
     transaction_id: int = Field(foreign_key='transaction.id')
     member_id: int = Field(foreign_key='member.id')
-    proof: str
+    proof: bytes
+    commit: bytes   # NOTE: fixed size
+    domain: str
+    pubkey_hash: bytes  # NOTE: fixed size
+    is_2048_sig: bool
     created_at: datetime
     email_uid: int
 
@@ -104,7 +108,7 @@ class MailboxCursor:
 class TxData:
     to: str
     value: int
-    data: str
+    data: bytes
     operation: TransactionOperation
     nonce: int
     deadline: int
@@ -120,6 +124,7 @@ class InitialData:
 
 @dataclass
 class ApprovalData:
+    domain: str
     header: list[int]
     header_length: int
 
@@ -130,6 +135,7 @@ class ApprovalData:
     padded_relayer: list[int]
     padded_relayer_length: int
 
+    key_size: int
     pubkey_modulus_limbs: list[str]
     redc_params_limbs: list[str]
     signature: list[str]
@@ -137,6 +143,15 @@ class ApprovalData:
     root: str
     path_elements: list[str]
     path_indices: list[int]
+
+
+@dataclass
+class ProofStruct:
+    proof: bytes
+    commit: int
+    domain: str
+    pubkeyHash: bytes  # NOTE: fixed bytes length
+    is2048sig: bool
 
 
 @dataclass

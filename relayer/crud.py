@@ -1,6 +1,7 @@
 from datetime import datetime
 from datetime import timezone
 from sqlmodel import select
+from sqlalchemy import func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import engine
@@ -11,6 +12,7 @@ from models import Transaction
 from models import TransactionStatus
 from models import TransactionOperation
 from models import InitialData
+from models import ProofStruct
 
 
 async def create_tx(initial_data: InitialData) -> Transaction:
@@ -37,11 +39,20 @@ async def create_tx(initial_data: InitialData) -> Transaction:
     return tx
 
 
-async def create_approval(tx: Transaction, member: Member, zk_proof: str, uid: int) -> Approval:
+async def change_transaction_status(tx_id: int, status: TransactionStatus):
+    # TODO:
+    pass
+
+
+async def create_approval(tx: Transaction, member: Member, proof_struct: ProofStruct, uid: int) -> Approval:
     approval = Approval(
         transaction_id=tx.id,
         member_id=member.id,
-        proof=zk_proof,
+        proof=proof_struct.proof,
+        commit=proof_struct.commit.to_bytes(32),
+        domain=proof_struct.domain,
+        pubkey_hash=proof_struct.pubkeyHash,
+        is_2048_sig=proof_struct.is2048sig,
         created_at=datetime.now(),
         email_uid=uid,
     )
@@ -95,6 +106,32 @@ async def get_approval_by_tx_and_email(tx_id: int, member_id: int) -> Approval:
         )
         results = await session.scalars(statement)
         return results.first()
+
+
+async def check_threshold_is_confirmed(tx_id: int, samm_id: int) -> bool:
+    async with AsyncSession(engine) as session:
+        # TODO: replace samm.threshold to tx.threshold at the moment of tx creation
+        # TODO: refactor to single request
+        statement = select(func.count('*')).where(
+            (Approval.transaction_id == tx_id)
+        )
+        approval_count = (await session.scalars(statement)).one()
+
+        statement = select(Samm.threshold).where(
+            (Samm.id == samm_id)
+        )
+        threshold = (await session.scalars(statement)).one()
+
+        return approval_count >= threshold
+
+
+async def get_approvals(tx_id: int):
+    async with AsyncSession(engine) as session:
+        statement = select(Approval.proof).where(
+            (Approval.transaction_id == tx_id)
+        )
+        results = await session.scalars(statement)
+        return results.all()
 
 
 async def fill_db_initial_tx(first_user_email: str) -> Samm:
@@ -151,7 +188,7 @@ async def fill_db_approval_tx(first_user_email: str):
             msg_hash='yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68=',
             to='0x1111',
             value=10**18,
-            data='calldata',
+            data=b'calldata',
             operation=TransactionOperation.call,
             nonce=123,
             deadline=int(datetime(2025, 12, 31).replace(tzinfo=timezone.utc).timestamp()),

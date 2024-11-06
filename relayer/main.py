@@ -11,9 +11,11 @@ from itertools import batched
 import dkim
 from aioimaplib import aioimaplib
 from dotenv import load_dotenv
+
 RELAYER_SECRETS_FILE = os.environ.get('RELAYER_SECRETS_FILE')
 load_dotenv(RELAYER_SECRETS_FILE or '.env')
 
+import blockchain
 import db
 import crud
 from mailer.dkim_extractor import extract_dkim_data
@@ -23,7 +25,10 @@ from models import InitialData
 from models import Member
 from models import MemberMessage
 from models import MailboxCursor
+from models import ProofStruct
+from models import Transaction
 from models import TransactionOperation
+from models import TransactionStatus
 from models import TxData
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
@@ -140,9 +145,14 @@ async def process_imap_messages(lines: list) -> int:
 
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
         if member_message:
-            zk_proof = await generate_zk_proof(member_message.approval_data)
-            await store_member_message(uid, member_message, zk_proof)
-            # TODO: execute transaction if threshold reached
+            proof_struct = await generate_zk_proof(member_message.approval_data)
+            member_message.tx = await store_member_message(uid, member_message, proof_struct)
+
+            is_confirmed, proof_structs = await check_threshold(member_message.tx)
+            if is_confirmed:
+                tx_status = await execute_transaction(member_message.tx, proof_structs)
+                await change_transaction_status(member_message.tx, tx_status)
+
             # TODO: notice all members if the new tx is received
             await send_response(member_message)
 
@@ -265,7 +275,7 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
             TxData(
                 to=str(m.group('to')),
                 value=int(m.group('value')),
-                data=str(m.group('data')),
+                data=bytes(m.group('data').encode()),
                 operation=TransactionOperation(m.group('operation')),
                 nonce=int(m.group('nonce')),
                 deadline=int(m.group('deadline')),
@@ -279,7 +289,8 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
 
 
 async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
-    header, header_length, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_dkim_data(raw_msg)
+    domain, header, header_length, key_size, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = \
+        await extract_dkim_data(raw_msg)
     msg_hash = convert_str_to_int_list(msg_hash_b64)
     padded_member, padded_member_length = get_padded_email(member.email)
     padded_relayer, padded_relayer_length = get_padded_email(relayer_email)
@@ -289,6 +300,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     path_elements, path_indices = tree.gen_proof(leaf_pos=members.index(member))
 
     return ApprovalData(
+        domain=domain,
         header=header,
         header_length=header_length,
 
@@ -299,6 +311,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
         padded_relayer=padded_relayer,
         padded_relayer_length=padded_relayer_length,
 
+        key_size=key_size,
         pubkey_modulus_limbs=pubkey_modulus_limbs,
         redc_params_limbs=redc_params_limbs,
         signature=signature_limbs,
@@ -309,7 +322,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     )
 
 
-async def generate_zk_proof(approval_data: ApprovalData) -> str:
+async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
     # # TODO: launch prover
     # proc = await asyncio.create_subprocess_exec(
     #     'bb ...', '-flags',
@@ -322,10 +335,25 @@ async def generate_zk_proof(approval_data: ApprovalData) -> str:
     # # other processes
     # stdout, stderr = await proc.communicate()
 
-    return 'TODO: zk proof'
+    match approval_data.key_size:
+        case 2048:
+            is_2048_sig = True
+        case 1024:
+            is_2048_sig = False
+        case _:
+            # TODO: error
+            raise
+
+    return ProofStruct(
+        proof=b'1231231231',
+        commit=int('0x01e756223c5baeccc9076912dcb9c1dc0d6f1c24187f678682017e93920784e8', 16),
+        domain=approval_data.domain,
+        pubkeyHash=int('0x17655f0139cacecc80f4143fd28e7107ce6038374ea9d5cfcf5d3fb5ce0086e6', 16).to_bytes(length=32),
+        is2048sig=is_2048_sig,
+    )
 
 
-async def store_member_message(uid: int, msg: MemberMessage, zk_proof: str):
+async def store_member_message(uid: int, msg: MemberMessage, proof_struct: ProofStruct) -> Transaction:
     tx = msg.tx
     if msg.initial_data and tx or not msg.initial_data and not tx:
         raise
@@ -333,12 +361,64 @@ async def store_member_message(uid: int, msg: MemberMessage, zk_proof: str):
     if msg.initial_data:
         tx = await crud.create_tx(msg.initial_data)
 
-    await crud.create_approval(tx, msg.member, zk_proof, uid)
-
+    await crud.create_approval(tx, msg.member, proof_struct, uid)
     print(f'UID={uid}')
     print(f'FROM={msg.member.email}')
     print(f'TX={tx.id}')
-    print(f'ZKPROOF={zk_proof}')
+    print(f'ZKPROOF={proof_struct}')
+    return tx
+
+
+async def check_threshold(tx: Transaction) -> tuple[bool, list[ProofStruct]]:
+    if not await crud.check_threshold_is_confirmed(tx.id, tx.samm_id):
+        return False, []
+
+    proof_structs: list[ProofStruct] = []
+    for approval in await crud.get_approvals(tx.id):
+        proof_structs.append(ProofStruct(
+            proof=approval.proof,
+            commit=approval.commit.from_bytes(32),
+            domain=approval.domain,
+            pubkeyHash=approval.pubkey_hash,
+            is2048sig=approval.is_2048_sig,
+        ))
+
+    if not proof_structs:
+        print('Proofs list is empty')
+        raise
+
+    return True, proof_structs
+
+
+async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct]) -> TransactionStatus:
+    tx_data = TxData(
+        to=tx.to,
+        value=tx.value,
+        data=tx.data,
+        operation=TransactionOperation(tx.operation),
+        nonce=tx.nonce,
+        deadline=tx.deadline,
+    )
+    is_sent = await blockchain.execute_transaction(tx.samm.samm_address, tx_data, proof_structs)
+    return TransactionStatus.sent if is_sent else TransactionStatus.confirmed
+
+
+async def change_transaction_status(tx: Transaction, status: TransactionStatus):
+    # match status:
+    #     case TransactionStatus.pending:
+    #         # do nothing
+    #         pass
+    #     case TransactionStatus.success:
+    #         # TODO: change tx.status to success
+    #         pass
+    #     case TransactionStatus.confirmed | TransactionStatus.sent | TransactionStatus.failed:
+    #         # TODO: sent - strange state of tx
+    #         # TODO: change tx.status
+    #         print('tx')
+    #     case _:
+    #         print('Incorrect status')
+    #         # TODO: return?
+    await crud.change_transaction_status(tx.tx_id, status)
 
 
 async def send_response(msg: MemberMessage):

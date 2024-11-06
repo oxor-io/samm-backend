@@ -16,7 +16,7 @@ from dkim import HashThrough
 # logging.basicConfig(level=logging.DEBUG)
 
 
-async def extract_dkim_data(raw_email: bytes) -> tuple[list[int], int, list[str], list[str], list[str]]:
+async def extract_dkim_data(raw_email: bytes) -> tuple[str, list[int], int, int, list[str], list[str], list[str]]:
     # dkim_parser = DKIM(raw_email, logger=logger)
     dkim_obj = DKIM(raw_email)
 
@@ -28,24 +28,36 @@ async def extract_dkim_data(raw_email: bytes) -> tuple[list[int], int, list[str]
         return False
     sig, include_headers, sigheaders = prep
 
-    pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_limbs(sig)
+    dns_name, domain, signature = get_dns_params(sig)
+    key_size, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = await extract_limbs(dns_name, signature)
 
     # NOTE: dkim signatures could be more than 1, but we use only first one
     headers, headers_length = extract_header(sig, include_headers, sigheaders[idx], dkim_obj.headers)
 
     return (
+        domain,
         headers,
         headers_length,
+        key_size,
         pubkey_modulus_limbs,
         redc_params_limbs,
         signature_limbs,
     )
 
 
-async def extract_limbs(sig: dict[bytes: bytes]) -> tuple[list[str], list[str], list[str]]:
-    # TODO: add exception processor
+def get_dns_params(sig: dict[bytes: bytes]) -> tuple[str, str, int]:
     name = sig[b's'] + b"._domainkey." + sig[b'd'] + b"."
-    pk, key_size, _, _ = await load_pk_from_dns_async(name, get_txt_async)
+    domain = sig[b'd'].decode()
+
+    signature_bytes = base64.b64decode(re.sub(br"\s+", b"", sig[b'b']))
+    signature = int.from_bytes(signature_bytes)
+
+    return name, domain, signature
+
+
+async def extract_limbs(dns_name: str, signature: int) -> tuple[int, list[str], list[str], list[str]]:
+    # TODO: add try-cache for network exceptions
+    pk, key_size, _, _ = await load_pk_from_dns_async(dns_name, get_txt_async)
 
     pubkey_modulus_limbs = calc_limbs(pk['modulus'])
 
@@ -53,10 +65,9 @@ async def extract_limbs(sig: dict[bytes: bytes]) -> tuple[list[str], list[str], 
     # https://docs.rs/noir-bignum-paramgen/latest/src/noir_bignum_paramgen/lib.rs.html#25
     redc_params_limbs = calc_limbs((1 << (2 * key_size)) // pk['modulus'])
 
-    signature_bytes = base64.b64decode(re.sub(br"\s+", b"", sig[b'b']))
-    signature_limbs = calc_limbs(int.from_bytes(signature_bytes))
+    signature_limbs = calc_limbs(signature)
 
-    return pubkey_modulus_limbs, redc_params_limbs, signature_limbs
+    return key_size, pubkey_modulus_limbs, redc_params_limbs, signature_limbs
 
 
 def calc_limbs(modulus: int) -> list[str]:
