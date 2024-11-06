@@ -15,3 +15,10 @@ __pycache__/
 
 *.db
 .env
+
+relayer/target/
+*/target/*
+!*/target/samm_2048.json
+!*/target/samm_1024.json
+
+node_modules

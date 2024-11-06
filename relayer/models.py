@@ -22,6 +22,10 @@ class TransactionStatus(str, Enum):
     success = 'success'
     failed = 'failed'
 
+@dataclass
+class Sequence:
+    index: int
+    length: int
 
 class SammMemberLink(SQLModel, table=True):
     samm_id: int | None = Field(default=None, foreign_key='samm.id', primary_key=True)
@@ -132,6 +136,7 @@ class ApprovalData:
 
     padded_member: list[int]
     padded_member_length: int
+    secret: int
     padded_relayer: list[int]
     padded_relayer_length: int
 
@@ -143,6 +148,11 @@ class ApprovalData:
     root: str
     path_elements: list[str]
     path_indices: list[int]
+
+    from_seq: Sequence
+    member_seq: Sequence
+    to_seq: Sequence
+    relayer_seq: Sequence
 
 
 @dataclass

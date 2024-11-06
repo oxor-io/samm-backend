@@ -7,6 +7,7 @@ from email.message import Message
 from email.parser import BytesParser
 from email.utils import parseaddr
 from itertools import batched
+import json
 
 import dkim
 from aioimaplib import aioimaplib
@@ -33,6 +34,7 @@ from models import TxData
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import get_padded_email
+from utils import generate_sequences
 
 
 # https://github.com/bamthomas/aioimaplib
@@ -299,6 +301,9 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     tree = generate_merkle_tree(emails_and_secrets)
     path_elements, path_indices = tree.gen_proof(leaf_pos=members.index(member))
 
+    # calculate sequences
+    from_seq, member_seq, to_seq, relayer_seq = generate_sequences(header, header_length, member.email, relayer_email)
+
     return ApprovalData(
         domain=domain,
         header=header,
@@ -308,6 +313,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
 
         padded_member=padded_member,
         padded_member_length=padded_member_length,
+        secret = member.secret,
         padded_relayer=padded_relayer,
         padded_relayer_length=padded_relayer_length,
 
@@ -319,21 +325,65 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
         root=str(tree.root),
         path_elements=[str(i) for i in path_elements],
         path_indices=path_indices,
+
+        from_seq=from_seq,
+        member_seq=member_seq,
+        to_seq=to_seq,
+        relayer_seq=relayer_seq,
     )
 
 
 async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
-    # # TODO: launch prover
-    # proc = await asyncio.create_subprocess_exec(
-    #     'bb ...', '-flags',
-    #     stdout=asyncio.subprocess.PIPE,
-    #     stderr=asyncio.subprocess.PIPE)
-    #
-    # # do something else while ls is working
-    #
-    # # if proc takes very long to complete, the CPUs are free to use   cycles for
-    # # other processes
-    # stdout, stderr = await proc.communicate()
+
+    proverData = {
+        "root": approval_data.root,
+        "path_elements" : approval_data.path_elements,
+        "path_indices" : approval_data.path_indices,
+        "signature" : approval_data.signature,
+        "padded_member" : approval_data.padded_member,
+        "secret" : approval_data.secret,
+        "msg_hash" : approval_data.msg_hash,
+        "header" : { "len" : approval_data.header_length, "storage" : approval_data.header },
+        "relayer" : { "len" : approval_data.padded_relayer_length, "storage" : approval_data.padded_relayer },
+        "pubkey" : { "modulus" : approval_data.pubkey_modulus_limbs, "redc" : approval_data.redc_params_limbs },
+        "from_seq" : { "index" : approval_data.from_seq.index, "length" : approval_data.from_seq.length },
+        "member_seq" : { "index" : approval_data.member_seq.index, "length" : approval_data.member_seq.length },
+        "to_seq" : { "index" : approval_data.to_seq.index, "length" : approval_data.to_seq.length },
+        "relayer_seq" : { "index" : approval_data.relayer_seq.index, "length" : approval_data.relayer_seq.length }
+    }
+    
+    # Serializing json
+    json_object = json.dumps(proverData, indent=4)
+
+    # write to prover file
+    with open('./target/prover.json', 'w') as file:  
+        file.write(json_object)
+
+    # node scripts/generateWitness.js
+    print('Generating witness... ⌛')
+    process = await asyncio.create_subprocess_exec('node', 'scripts/generateWitness.js')
+    print(f'subprocess: {process}')
+    await process.wait()
+    print('Generating witness... ✅')
+
+    print('Generating proof... ⌛')
+    # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o ./target/proof
+    process = await asyncio.create_subprocess_exec('bb', 'prove_ultra_keccak_honk', '-b', './target/samm_2048.json', '-w', './target/witness.gz', '-o', './target/proof')
+    print(f'subprocess: {process}')
+    await process.wait()
+    print('Generating proof... ✅')
+
+    # read proof and split to public inputs, outputs (commit, pubkeyHash) and proof itself
+    data = b''
+    with open('./target/proof', 'rb') as file:
+        data = file.read()
+    
+    # first output
+    commit = data[5540:5572].hex()
+    # second output
+    pubkeyHash = data[5572:5604].hex()
+    # proof
+    proof = data[4:100].hex() + data[5604:].hex()
 
     match approval_data.key_size:
         case 2048:
@@ -345,12 +395,13 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
             raise
 
     return ProofStruct(
-        proof=b'1231231231',
-        commit=int('0x01e756223c5baeccc9076912dcb9c1dc0d6f1c24187f678682017e93920784e8', 16),
+        proof=proof,
+        commit=commit,
         domain=approval_data.domain,
-        pubkeyHash=int('0x17655f0139cacecc80f4143fd28e7107ce6038374ea9d5cfcf5d3fb5ce0086e6', 16).to_bytes(length=32),
+        pubkeyHash=pubkeyHash,
         is2048sig=is_2048_sig,
     )
+
 
 
 async def store_member_message(uid: int, msg: MemberMessage, proof_struct: ProofStruct) -> Transaction:
