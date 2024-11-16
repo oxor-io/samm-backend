@@ -10,8 +10,18 @@ ENV PYTHONUNBUFFERED 1
 
 # install system dependencies
 RUN apk update \
-  && apk add gcc \
+  && apk add gcc nodejs npm curl libc++-dev libc6-compat jq \
   && apk cache clean
+
+# download and execute bbup
+RUN curl -L bbup.dev | ash
+RUN bbup -v 0.57.0
+RUN ln -s /root/.bb/bb /usr/local/bin/bb
+
+# install npm dependencies
+COPY ./package.json .
+COPY ./package-lock.json .
+RUN npm install
 
 # install python dependencies
 RUN pip install --upgrade pip

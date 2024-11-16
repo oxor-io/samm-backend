@@ -17,7 +17,7 @@ from dkim import HashThrough
 
 
 async def extract_dkim_data(raw_email: bytes) -> tuple[str, list[int], int, int, list[str], list[str], list[str]]:
-    # dkim_parser = DKIM(raw_email, logger=logger)
+    # dkim_obj = DKIM(raw_email, logger=logger)
     dkim_obj = DKIM(raw_email)
 
     idx = 0
