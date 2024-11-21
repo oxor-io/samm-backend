@@ -15,6 +15,8 @@ __pycache__/
 
 *.db
 .env
+.env_relayer
+.env_web
 
 relayer/target/
 */target/*

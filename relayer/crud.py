@@ -146,10 +146,38 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             chain_id=1,
         )
 
-        m1 = Member(samm=samm, email=first_user_email, is_active=True, secret=111)
-        m2 = Member(samm=samm, email='asd@gmail.com', is_active=True, secret=222)
-        m3 = Member(samm=samm, email='zxc@yandex.ru', is_active=True, secret=333)
-        m4 = Member(samm=samm, email='spammer@topdomain.xyz', is_active=False, secret=444)
+        m1 = Member(
+            samm=samm,
+            email=first_user_email,
+            is_active=True,
+            is_admin=True,
+            secret=111,
+            hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
+        )
+        m2 = Member(
+            samm=samm,
+            email='asd@gmail.com',
+            is_active=True,
+            is_admin=False,
+            secret=222,
+            hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
+        )
+        m3 = Member(
+            samm=samm,
+            email='zxc@yandex.ru',
+            is_active=True,
+            is_admin=False,
+            secret=333,
+            hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
+        )
+        m4 = Member(
+            samm=samm,
+            email='spammer@topdomain.xyz',
+            is_active=False,
+            is_admin=False,
+            secret=444,
+            hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
+        )
 
         session.add(m1)
         session.add(m2)
@@ -179,10 +207,38 @@ async def fill_db_approval_tx(first_user_email: str):
             chain_id=1,
         )
 
-        m1 = Member(samm=samm, email=first_user_email, is_active=True, secret=111)
-        m2 = Member(samm=samm, email='asd@gmail.com', is_active=True, secret=222)
-        m3 = Member(samm=samm, email='zxc@yandex.ru', is_active=True, secret=333)
-        m4 = Member(samm=samm, email='spammer@topdomain.xyz', is_active=False, secret=444)
+        m1 = Member(
+            samm=samm,
+            email=first_user_email,
+            is_active=True,
+            is_admin=True,
+            secret=111,
+            hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
+        )
+        m2 = Member(
+            samm=samm,
+            email='asd@gmail.com',
+            is_active=True,
+            is_admin=False,
+            secret=222,
+            hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
+        )
+        m3 = Member(
+            samm=samm,
+            email='zxc@yandex.ru',
+            is_active=True,
+            is_admin=False,
+            secret=333,
+            hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
+        )
+        m4 = Member(
+            samm=samm,
+            email='spammer@topdomain.xyz',
+            is_active=False,
+            is_admin=False,
+            secret=444,
+            hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
+        )
 
         tx = Transaction(
             msg_hash='yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68=',

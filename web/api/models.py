@@ -61,7 +61,9 @@ class MemberBase(SQLModel):
 class Member(MemberBase, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
     secret: int
+    hashed_password: str
     is_active: bool
+    is_admin: bool
 
     samms: list[Samm] = Relationship(back_populates='members', link_model=SammMemberLink)
     transactions: list['Transaction'] = Relationship(back_populates='members', link_model=MemberTransactionLink)
@@ -75,7 +77,9 @@ class MemberPublic(MemberBase):
 
 class MemberCreateSecret(MemberBase):
     secret: int
+    hashed_password: str
     is_active: bool
+    is_admin: bool
 
 
 # Models from Relayer

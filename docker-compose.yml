@@ -12,15 +12,11 @@ services:
     depends_on:
       - db
     environment:
-      # # Used in RELAYER_SECRETS_FILE
-      # SMTP_HOST: smtp.yandex.com
-      # SMTP_PORT: 465
-      # IMAP_HOST: imap.yandex.ru
-      # IMAP_PORT: 993
-      RELAYER_SECRETS_FILE: /run/secrets/relayer_env
+      SECRETS_FILE: /run/secrets/env_relayer
+      # DATABASE_URL=sqlite+aiosqlite:///database.db
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/foo
     secrets:
-      - relayer_env
+      - env_relayer
 
   web:
     build: ./web
@@ -30,9 +26,13 @@ services:
     ports:
       - 8004:8000
     environment:
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/foo
+      SECRETS_FILE: /run/secrets/env_web
+      # DATABASE_URL=sqlite+aiosqlite:///database.db
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@db:5432/foo
     depends_on:
       - db
+    secrets:
+      - env_web
 
   db:
     image: postgres:15.3
@@ -44,5 +44,7 @@ services:
       - POSTGRES_DB=foo
 
 secrets:
-  relayer_env:
-    file: .env
+  env_relayer:
+    file: .env_relayer
+  env_web:
+    file: .env_web

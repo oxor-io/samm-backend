@@ -1,30 +1,35 @@
-from random import randint
-
 from fastapi import APIRouter
 from fastapi import Depends
 from fastapi import Query
+from fastapi import Security
 from pydantic import EmailStr
 from sqlmodel import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from api.db import get_session
+from api.dependencies import get_current_active_member
 from api.models import Samm
 from api.models import SammCreate
 from api.models import SammPublic
 from api.models import Member
-from api.models import MemberCreateSecret
 from api.models import MemberPublic
 from api.models import Approval
 from api.models import ApprovalPublic
 from api.models import Transaction
 from api.models import TransactionPublic
 from api.models import TransactionStatus
+from api.service import create_member
+from api.token.models import TokenScope
 
 router = APIRouter()
 
 
-@router.get('/samms/', response_model=list[SammPublic])
+@router.get(
+    '/samms/',
+    response_model=list[SammPublic],
+    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+)
 async def get_samms(
         session: AsyncSession = Depends(get_session),
         offset: int = 0,
@@ -35,8 +40,15 @@ async def get_samms(
     return samms
 
 
-@router.post('/samms/', response_model=SammPublic)
-async def add_samm(samm_payload: SammCreate, session: AsyncSession = Depends(get_session)):
+@router.post(
+    '/samms/',
+    response_model=SammPublic,
+    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+)
+async def add_samm(
+        samm_payload: SammCreate,
+        session: AsyncSession = Depends(get_session),
+):
     samm = Samm.model_validate(samm_payload)
     session.add(samm)
     await session.commit()
@@ -44,7 +56,11 @@ async def add_samm(samm_payload: SammCreate, session: AsyncSession = Depends(get
     return samm
 
 
-@router.get('/samms/{samm_id}/members', response_model=list[MemberPublic])
+@router.get(
+    '/samms/{samm_id}/members',
+    response_model=list[MemberPublic],
+    # dependencies=[Depends(get_current_active_member)]
+)
 async def get_samm_members(
         samm_id: int,
         session: AsyncSession = Depends(get_session),
@@ -56,7 +72,11 @@ async def get_samm_members(
     return members
 
 
-@router.post('/samms/{samm_id}/members/', response_model=MemberPublic)
+@router.post(
+    '/samms/{samm_id}/members/',
+    response_model=MemberPublic,
+    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+)
 async def add_samm_members(
         samm_id: int,
         member_email: EmailStr,
@@ -69,14 +89,7 @@ async def add_samm_members(
     member = (await session.scalars(statement)).first()
 
     if not member:
-        # TODO: check SAMM existance
-        # TODO: generate secret
-        member_payload = MemberCreateSecret(
-            email=member_email,
-            is_active=True,
-            secret=randint(1, 2048)
-        )
-        member = Member.model_validate(member_payload)
+        member = create_member(member_email)
 
     # TODO: recalculate samm.root
 
@@ -87,7 +100,11 @@ async def add_samm_members(
     return member
 
 
-@router.delete('/samms/{samm_id}/members/', response_model=MemberPublic)
+@router.delete(
+    '/samms/{samm_id}/members/',
+    response_model=MemberPublic,
+    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+)
 async def remove_samm_members(
         samm_id: int,
         member_email: EmailStr,
@@ -107,7 +124,11 @@ async def remove_samm_members(
     return member
 
 
-@router.get('/samms/{samm_id}/transactions/', response_model=list[TransactionPublic])
+@router.get(
+    '/samms/{samm_id}/transactions/',
+    response_model=list[TransactionPublic],
+    # dependencies=[Depends(get_current_active_member)],
+)
 async def get_transactions(
         samm_id: int,
         status: TransactionStatus,
@@ -122,7 +143,11 @@ async def get_transactions(
     return transactions
 
 
-@router.get('/transactions/{transaction_id}/approvals/', response_model=list[ApprovalPublic])
+@router.get(
+    '/transactions/{transaction_id}/approvals/',
+    response_model=list[ApprovalPublic],
+    # dependencies=[Depends(get_current_active_member)],
+)
 async def get_approvals(
         transaction_id: int,
         session: AsyncSession = Depends(get_session),
@@ -132,3 +157,13 @@ async def get_approvals(
     statement = select(Approval).where(Approval.transaction_id == transaction_id).offset(offset).limit(limit)
     approvals = (await session.scalars(statement)).all()
     return approvals
+
+
+@router.get('/member_ping', dependencies=[Depends(get_current_active_member)])
+async def member_ping():
+    return {'ping': 'pong!'}
+
+
+@router.get('/samm_ping', dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],)
+async def samm_ping():
+    return {'ping': 'pong!'}

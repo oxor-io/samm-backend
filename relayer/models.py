@@ -22,10 +22,12 @@ class TransactionStatus(str, Enum):
     success = 'success'
     failed = 'failed'
 
+
 @dataclass
 class Sequence:
     index: int
     length: int
+
 
 class SammMemberLink(SQLModel, table=True):
     samm_id: int | None = Field(default=None, foreign_key='samm.id', primary_key=True)
@@ -61,7 +63,9 @@ class Member(SQLModel, table=True):
         description='The email of the user',
     )
     is_active: bool
+    is_admin: bool
     secret: int
+    hashed_password: str
 
     samms: list[Samm] = Relationship(back_populates='members', link_model=SammMemberLink)
     transactions: list['Transaction'] = Relationship(back_populates='members', link_model=MemberTransactionLink)

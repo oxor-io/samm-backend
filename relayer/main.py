@@ -13,8 +13,8 @@ import dkim
 from aioimaplib import aioimaplib
 from dotenv import load_dotenv
 
-RELAYER_SECRETS_FILE = os.environ.get('RELAYER_SECRETS_FILE')
-load_dotenv(RELAYER_SECRETS_FILE or '.env')
+SECRETS_FILE = os.environ.get('SECRETS_FILE')
+load_dotenv(SECRETS_FILE or '.env_relayer')
 
 import blockchain
 import db
