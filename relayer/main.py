@@ -59,8 +59,8 @@ FETCH_MESSAGE_DATA_FLAGS = re.compile(rb'.*FLAGS \((?P<flags>.*?)\).*')
 CHUNK_SIZE = 100
 
 CURSORS = [
-    MailboxCursor(folder='Spam', uid_start=95, uid_end=95 + CHUNK_SIZE),
-    MailboxCursor(folder='INBOX', uid_start=540, uid_end=540 + CHUNK_SIZE),
+    # MailboxCursor(folder='Spam', uid_start=95, uid_end=95 + CHUNK_SIZE),
+    MailboxCursor(folder='INBOX', uid_start=1, uid_end=540 + CHUNK_SIZE),
 ]
 
 

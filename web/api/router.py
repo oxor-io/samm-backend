@@ -28,7 +28,7 @@ router = APIRouter()
 @router.get(
     '/samms/',
     response_model=list[SammPublic],
-    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+    dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
 )
 async def get_samms(
         session: AsyncSession = Depends(get_session),
@@ -43,7 +43,7 @@ async def get_samms(
 @router.post(
     '/samms/',
     response_model=SammPublic,
-    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+    dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
 )
 async def add_samm(
         samm_payload: SammCreate,
@@ -59,7 +59,7 @@ async def add_samm(
 @router.get(
     '/samms/{samm_id}/members',
     response_model=list[MemberPublic],
-    # dependencies=[Depends(get_current_active_member)]
+    dependencies=[Depends(get_current_active_member)]
 )
 async def get_samm_members(
         samm_id: int,
@@ -75,7 +75,7 @@ async def get_samm_members(
 @router.post(
     '/samms/{samm_id}/members/',
     response_model=MemberPublic,
-    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+    dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
 )
 async def add_samm_members(
         samm_id: int,
@@ -103,7 +103,7 @@ async def add_samm_members(
 @router.delete(
     '/samms/{samm_id}/members/',
     response_model=MemberPublic,
-    # dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
+    dependencies=[Security(get_current_active_member, scopes=[TokenScope.samm.value])],
 )
 async def remove_samm_members(
         samm_id: int,
@@ -127,7 +127,7 @@ async def remove_samm_members(
 @router.get(
     '/samms/{samm_id}/transactions/',
     response_model=list[TransactionPublic],
-    # dependencies=[Depends(get_current_active_member)],
+    dependencies=[Depends(get_current_active_member)],
 )
 async def get_transactions(
         samm_id: int,
@@ -146,7 +146,7 @@ async def get_transactions(
 @router.get(
     '/transactions/{transaction_id}/approvals/',
     response_model=list[ApprovalPublic],
-    # dependencies=[Depends(get_current_active_member)],
+    dependencies=[Depends(get_current_active_member)],
 )
 async def get_approvals(
         transaction_id: int,

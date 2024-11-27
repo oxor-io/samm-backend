@@ -30,6 +30,12 @@ async def get_current_member(
         authenticate_value = 'Bearer'
 
     token_data: TokenData = decode_jwt_access_token(token)
+    if not token_data:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Invalid token',
+            headers={'WWW-Authenticate': authenticate_value},
+        )
 
     # check member
     member = await get_member_by_email(member_email=token_data.member_email)

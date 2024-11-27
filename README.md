@@ -14,11 +14,24 @@ $ pip install -r requirements.txt
 
 ### Launch dev server
 ```sh
-$ cd web
-$ fastapi dev api/main.py
+$ cd samm-backend
+$ python relayer/main.py
+```
+
+### Launch dev server
+```sh
+$ cd samm-backend
+$ fastapi dev web/api/main.py
 ```
 
 ## Docker
+
+### Fill the secrets in .env_web and .env_relayer by examples(.env_web.example and .env_relayer.example)
+JWT_SECRET_KEY is a random number. You can get it by:
+```sh
+openssl rand -hex 32
+```
+
 ### Bring down the old containers and volumes
 ```sh
 $ docker-compose down -v
