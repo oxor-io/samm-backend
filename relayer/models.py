@@ -39,6 +39,19 @@ class MemberTransactionLink(SQLModel, table=True):
     transaction_id: int | None = Field(default=None, foreign_key='transaction.id', primary_key=True)
 
 
+class SammOwnerLink(SQLModel, table=True):
+    samm_id: int | None = Field(default=None, foreign_key='samm.id', primary_key=True)
+    owner_id: int | None = Field(default=None, foreign_key='owner.id', primary_key=True)
+
+
+class Owner(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    owner_address: str
+    is_active: bool
+
+    samms: list['Samm'] = Relationship(back_populates='owners', link_model=SammOwnerLink)
+
+
 class Samm(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     nonce: int | None = Field(default=0)
@@ -49,6 +62,7 @@ class Samm(SQLModel, table=True):
     root: str
     chain_id: int
 
+    owners: list[Owner] = Relationship(back_populates='samms', link_model=SammOwnerLink)
     members: list['Member'] = Relationship(back_populates='samms', link_model=SammMemberLink)
     transactions: list['Transaction'] = Relationship(back_populates='samm')
 
@@ -63,7 +77,6 @@ class Member(SQLModel, table=True):
         description='The email of the user',
     )
     is_active: bool
-    is_admin: bool
     secret: int
     hashed_password: str
 

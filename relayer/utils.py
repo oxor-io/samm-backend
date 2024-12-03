@@ -30,6 +30,7 @@ def generate_merkle_tree(emails_and_secrets: list[tuple[str, int]]) -> MerkleTre
 
     return MerkleTree(leafs, height=TREE_HEIGHT)
 
+
 def generate_sequences(header: list[int], header_length: int, member: str, relayer: str):
     padded_member = convert_str_to_int_list(member)
     padded_relayer = convert_str_to_int_list(relayer)
@@ -37,17 +38,18 @@ def generate_sequences(header: list[int], header_length: int, member: str, relay
     padded_to = convert_str_to_int_list("to:")
 
     # from
-    index = find_subseq_index(header,padded_from)
-    from_seq = Sequence(index=index,length=find_seq_end(header,header_length, index)-index+1)
+    index = find_subseq_index(header, padded_from)
+    from_seq = Sequence(index=index, length=find_seq_end(header, header_length, index)-index+1)
     # member
-    member_seq = Sequence(index=find_subseq_index(header,padded_member),length=len(padded_member))
+    member_seq = Sequence(index=find_subseq_index(header, padded_member), length=len(padded_member))
     # to
-    index = find_subseq_index(header,padded_to)
-    to_seq = Sequence(index=index,length=find_seq_end(header,header_length, index)-index+1)
+    index = find_subseq_index(header, padded_to)
+    to_seq = Sequence(index=index, length=find_seq_end(header, header_length, index)-index+1)
     # relayer
-    relayer_seq = Sequence(index=find_subseq_index(header,padded_relayer),length=len(padded_relayer))
+    relayer_seq = Sequence(index=find_subseq_index(header, padded_relayer), length=len(padded_relayer))
 
     return from_seq, member_seq, to_seq, relayer_seq
+
 
 def find_subseq_index(arr: list[int], target: list[int]):
     start_idx = 0
@@ -58,11 +60,12 @@ def find_subseq_index(arr: list[int], target: list[int]):
     
     return start_idx
 
+
 def find_seq_end(arr: list[int], length: int, start: int):
     end_idx = length - 1
     
     for i in range(start,length-1):
-        if arr[i] == 13 and arr[i+1] == 10: # 13 - \r, 10 - \n
+        if arr[i] == 13 and arr[i+1] == 10:     # 13 - \r, 10 - \n
             end_idx = i-1
             break
     

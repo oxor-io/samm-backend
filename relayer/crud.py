@@ -15,6 +15,9 @@ from models import InitialData
 from models import ProofStruct
 
 
+DEFAULT_EXPIRATION_PERIOD = 30 * 24 * 60 * 60
+
+
 async def create_tx(initial_data: InitialData) -> Transaction:
     tx = Transaction(
         msg_hash=initial_data.msg_hash,
@@ -142,7 +145,7 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             threshold=3,
             root='root',
             nonce=123,
-            expiration_period=int(datetime(2027, 1, 1).replace(tzinfo=timezone.utc).timestamp()),
+            expiration_period=DEFAULT_EXPIRATION_PERIOD,
             chain_id=1,
         )
 
@@ -150,7 +153,6 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             samm=samm,
             email=first_user_email,
             is_active=True,
-            is_admin=True,
             secret=111,
             hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
         )
@@ -158,7 +160,6 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             samm=samm,
             email='asd@gmail.com',
             is_active=True,
-            is_admin=False,
             secret=222,
             hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
         )
@@ -166,7 +167,6 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             samm=samm,
             email='zxc@yandex.ru',
             is_active=True,
-            is_admin=False,
             secret=333,
             hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
         )
@@ -174,7 +174,6 @@ async def fill_db_initial_tx(first_user_email: str) -> Samm:
             samm=samm,
             email='spammer@topdomain.xyz',
             is_active=False,
-            is_admin=False,
             secret=444,
             hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
         )
@@ -203,7 +202,7 @@ async def fill_db_approval_tx(first_user_email: str):
             threshold=3,
             root='root',
             nonce=123,
-            expiration_period=int(datetime(2027, 1, 1).replace(tzinfo=timezone.utc).timestamp()),
+            expiration_period=DEFAULT_EXPIRATION_PERIOD,
             chain_id=1,
         )
 
@@ -211,7 +210,6 @@ async def fill_db_approval_tx(first_user_email: str):
             samm=samm,
             email=first_user_email,
             is_active=True,
-            is_admin=True,
             secret=111,
             hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
         )
@@ -219,7 +217,6 @@ async def fill_db_approval_tx(first_user_email: str):
             samm=samm,
             email='asd@gmail.com',
             is_active=True,
-            is_admin=False,
             secret=222,
             hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
         )
@@ -227,7 +224,6 @@ async def fill_db_approval_tx(first_user_email: str):
             samm=samm,
             email='zxc@yandex.ru',
             is_active=True,
-            is_admin=False,
             secret=333,
             hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
         )
@@ -235,7 +231,6 @@ async def fill_db_approval_tx(first_user_email: str):
             samm=samm,
             email='spammer@topdomain.xyz',
             is_active=False,
-            is_admin=False,
             secret=444,
             hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
         )
