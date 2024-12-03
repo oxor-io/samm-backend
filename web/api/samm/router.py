@@ -24,10 +24,14 @@ router = APIRouter()
 )
 async def get_samms(
         session: AsyncSession = Depends(get_session),
+        safe_address: str = None,
         offset: int = 0,
         limit: int = Query(default=100, le=100),
 ):
-    statement = select(Samm).offset(offset).limit(limit)
+    query = select(Samm)
+    if safe_address:
+        query = query.where(Samm.safe_address == safe_address)
+    statement = query.offset(offset).limit(limit)
     samms = (await session.scalars(statement)).all()
     return samms
 
