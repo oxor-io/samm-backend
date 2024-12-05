@@ -21,6 +21,7 @@ router = APIRouter()
 
 
 @router.post('/token')
+@router.post('/token/')
 async def login_for_member_access_token(
     form_data: OAuth2PasswordRequestForm = Depends(),
 ) -> Token:
@@ -44,7 +45,7 @@ async def login_for_member_access_token(
     return Token(access_token=access_token, token_type='bearer')
 
 
-@router.post('/token/owner')
+@router.post('/token/owner/')
 async def login_for_owner_access_token(
         owner_address: str,
         samm_address: str,
