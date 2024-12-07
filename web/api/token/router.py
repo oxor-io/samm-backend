@@ -5,11 +5,12 @@ from fastapi import status
 from fastapi.security import OAuth2PasswordRequestForm
 
 from api.owner.crud import get_owner_by_address
-from api.owner.crud import save_owner_and_samm
+from api.owner.crud import save_owner
 from api.owner.service import create_owner
 from api.owner.service import check_signature
 from api.owner.service import check_samm_owner
 from api.samm.crud import get_samm_by_address
+from api.samm.crud import save_samm
 from api.samm.service import create_samm
 from api.member.service import authenticate_member
 from api.token.models import Token
@@ -74,10 +75,10 @@ async def login_for_owner_access_token(
     # new owner and samm
     if not owner:
         owner = create_owner(owner_address)
+        owner = await save_owner(owner)
     if not samm:
         samm = await create_samm(samm_address, chain_id)
-
-    await save_owner_and_samm(owner, samm)
+        await save_samm(owner, samm)
 
     scopes = [TokenScope.member.value, TokenScope.samm.value] if owner.is_active else []
 
