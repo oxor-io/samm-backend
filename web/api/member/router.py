@@ -34,8 +34,7 @@ async def get_samm_root(
 @router.get(
     '/samms/{samm_id}/members/',
     response_model=list[MemberPublic],
-    dependencies=[Security(get_token_subject, scopes=[TokenScope.samm.value])],
-    # dependencies=[Security(get_token_subject, scopes=[TokenScope.member.value])],
+    dependencies=[Security(get_token_subject, scopes=[TokenScope.member.value])],
 )
 async def get_samm_members(
         samm_id: int,
