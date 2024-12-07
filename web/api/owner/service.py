@@ -19,7 +19,6 @@ def check_signature(signature: str, chain_id: int, owner_address: str, samm_addr
         'version': '1',
         'chainId': chain_id,
         'verifyingContract': samm_address,
-        # 'salt': w3.solidity_keccak(['string'], ['SAMMAuthorizationRequest version: 1']).to_0x_hex(),
     }
     message_type = {
         'SAMMAuthorizationRequest': [
@@ -33,7 +32,6 @@ def check_signature(signature: str, chain_id: int, owner_address: str, samm_addr
         'module': samm_address,
         'time': timestamp,
     }
-
     msg = encode_typed_data(domain_data, message_type, message_data)
     signer_address = (w3.eth.account.recover_message(msg, signature=signature)).lower()
     return signer_address == owner_address

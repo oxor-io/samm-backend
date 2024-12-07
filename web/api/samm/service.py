@@ -6,7 +6,7 @@ from api.samm.models import SammCreate
 
 async def create_samm(samm_address: str, chain_id: int) -> Samm:
     # fetch samm params from blockchain
-    safe_address, threshold, root = await fetch_samm_data(samm_address)
+    safe_address, root, threshold = await fetch_samm_data(samm_address)
     samm_payload = SammCreate(
         samm_address=samm_address,
         safe_address=safe_address,
