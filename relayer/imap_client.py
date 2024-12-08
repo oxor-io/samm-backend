@@ -1,6 +1,7 @@
 import aiohttp
 import asyncio
 import re
+import logging
 from itertools import batched
 
 from aioimaplib import aioimaplib
@@ -43,10 +44,7 @@ async def idle_loop():
     resp = await imap_client.wait_hello_from_server()
     print(f'Hello server: {resp}')
 
-    token = await fetch_access_token(conf.GMAIL_REFRESH_TOKEN, conf.GMAIL_CLIENT_ID, conf.GMAIL_CLIENT_SECRET)
-    resp = await imap_client.xoauth2(conf.RELAYER_EMAIL, token)
-    print(f'Auth: {resp}')
-
+    await authenticate_oauth_token(imap_client)
     # resp = await imap_client.list('INBOX\\', '*')
     # print(f'List mail folder: {resp}')
 
@@ -54,37 +52,51 @@ async def idle_loop():
     switch_folder = True
 
     while True:
-        if switch_folder:
-            idx = CURSORS.index(cursor)
-            cursor = CURSORS[0] if (idx + 1) >= len(CURSORS) else CURSORS[idx + 1]
-            resp = await imap_client.select(cursor.folder)
-            switch_folder = False
-            print(f'Select mail folder: folder={cursor.folder} resp={resp}')
+        try:
+            if switch_folder:
+                idx = CURSORS.index(cursor)
+                cursor = CURSORS[0] if (idx + 1) >= len(CURSORS) else CURSORS[idx + 1]
+                resp = await imap_client.select(cursor.folder)
+                switch_folder = False
+                print(f'Select mail folder: folder={cursor.folder} resp={resp}')
 
-        uid_max = await fetch_imap_messages(imap_client, cursor.uid_start, cursor.uid_end)
-        match uid_max:
-            case 0:
-                switch_folder = True
-            case cursor.uid_end:
-                cursor.uid_start += CHUNK_SIZE
-                cursor.uid_end += CHUNK_SIZE
-                switch_folder = True
-            case _:
-                cursor.uid_start = uid_max + 1
-                cursor.uid_end = uid_max + CHUNK_SIZE
+            uid_max = await fetch_imap_messages(imap_client, cursor.uid_start, cursor.uid_end)
+            match uid_max:
+                case 0:
+                    switch_folder = True
+                case cursor.uid_end:
+                    cursor.uid_start += CHUNK_SIZE
+                    cursor.uid_end += CHUNK_SIZE
+                    switch_folder = True
+                case _:
+                    cursor.uid_start = uid_max + 1
+                    cursor.uid_end = uid_max + CHUNK_SIZE
+        except asyncio.TimeoutError:
+            logging.exception('Timeout exception')
+            await asyncio.sleep(60)
+            await authenticate_oauth_token(imap_client)
+        except:
+            logging.exception('Unknown exception')
+            await asyncio.sleep(60)
+            await authenticate_oauth_token(imap_client)
+
+
+async def authenticate_oauth_token(imap_client):
+    token = await fetch_access_token(conf.GMAIL_REFRESH_TOKEN, conf.GMAIL_CLIENT_ID, conf.GMAIL_CLIENT_SECRET)
+    resp = await imap_client.xoauth2(conf.RELAYER_EMAIL, token)
+    print(f'Auth: {resp}')
 
 
 async def fetch_access_token(refresh_token: str, client_id: str, client_secret: str) -> str:
+    GOOGLE_API_URL = 'https://oauth2.googleapis.com/token'
+    data = {
+        'grant_type': 'refresh_token',
+        'client_secret': client_secret,
+        'refresh_token': refresh_token,
+        'client_id': client_id,
+    }
     async with aiohttp.ClientSession() as session:
-        async with session.post(
-            url='https://oauth2.googleapis.com/token',
-            data={
-                'grant_type': 'refresh_token',
-                'client_secret': client_secret,
-                'refresh_token': refresh_token,
-                'client_id': client_id,
-            },
-        ) as resp:
+        async with session.post(url=GOOGLE_API_URL, data=data) as resp:
             print(f'refresh_access_token resp.status: {resp.status}')
             data = await resp.json()
             return data['access_token']
