@@ -6,6 +6,7 @@ from email.utils import parseaddr
 
 import dkim
 
+import conf
 import crud
 from mailer.dkim_extractor import extract_dkim_data
 from mailer.sender import send_email
@@ -38,8 +39,8 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
     msg_hash = msg['Subject']
     print(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
 
-    if relayer_email != RELAYER_EMAIL:
-        print(f'Email To does not belong to Relayer {relayer_email} != {RELAYER_EMAIL}')
+    if relayer_email != conf.RELAYER_EMAIL:
+        print(f'Email To does not belong to Relayer {relayer_email} != {conf.RELAYER_EMAIL}')
         return None
 
     print('Check msg_hash')
