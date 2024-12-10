@@ -40,11 +40,7 @@ CURSORS = [
 
 
 async def idle_loop():
-    imap_client = aioimaplib.IMAP4_SSL(host=conf.IMAP_HOST, port=conf.IMAP_PORT)
-    resp = await imap_client.wait_hello_from_server()
-    print(f'Hello server: {resp}')
-
-    await authenticate_oauth_token(imap_client)
+    imap_client = await connect()
 
     cursor = CURSORS[0]
     switch_folder = True
@@ -69,15 +65,20 @@ async def idle_loop():
                 case _:
                     cursor.uid_start = uid_max + 1
                     cursor.uid_end = uid_max + CHUNK_SIZE
+
         except asyncio.TimeoutError:
-            logging.exception('Timeout exception')
-            await asyncio.sleep(60)
-            await authenticate_oauth_token(imap_client)
-        except:
-            # TODO: process exception
-            logging.exception('Unknown exception')
-            await asyncio.sleep(60)
-            await authenticate_oauth_token(imap_client)
+            logging.exception(f'Timeout exception')
+            raise asyncio.TimeoutError
+
+
+async def connect() -> aioimaplib.IMAP4_SSL:
+    imap_client = aioimaplib.IMAP4_SSL(host=conf.IMAP_HOST, port=conf.IMAP_PORT)
+    resp = await imap_client.wait_hello_from_server()
+    print(f'Hello server: {resp}')
+
+    await authenticate_oauth_token(imap_client)
+
+    return imap_client
 
 
 async def authenticate_oauth_token(imap_client):
@@ -112,7 +113,7 @@ async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
     uid_max = await process_imap_messages(resp.lines)
     print(f'Fetched uid_max={uid_max}')
 
-    idle = await imap_client.idle_start(timeout=20)
+    idle = await imap_client.idle_start(timeout=conf.IMAP_IDLE_TIMEOUT)
     print(f'IDLE: {idle.get_name()}')
 
     resp = await imap_client.wait_server_push()
@@ -133,7 +134,7 @@ async def process_imap_messages(lines: list) -> int:
         lines = lines[:len(lines) - rem]
         print(f'Excess lines: {lines}')
 
-    for start, raw_msg, end in batched(lines[:-1], 3):
+    for start, raw_msg, end in batched(lines, 3):
         fetch_command_without_literal = b'%s %s' % (start, end)
         uid: int = int(FETCH_MESSAGE_DATA_UID.match(fetch_command_without_literal).group('uid'))
         # flags=FETCH_MESSAGE_DATA_FLAGS.match(fetch_command_without_literal).group('flags'),
