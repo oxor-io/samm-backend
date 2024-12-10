@@ -290,10 +290,10 @@ async def test_sequence_genration():
 
     from_seq, member_seq, to_seq, relayer_seq = generate_sequences(header, header_length, member_email, relayer_email)
 
-    assert from_seq == Sequence(index=15,length=32)
-    assert member_seq == Sequence(index=20,length=27)
-    assert to_seq == Sequence(index=0,length=13)
-    assert relayer_seq == Sequence(index=3,length=10)
+    assert from_seq == Sequence(index=15, length=32)
+    assert member_seq == Sequence(index=20, length=27)
+    assert to_seq == Sequence(index=0, length=13)
+    assert relayer_seq == Sequence(index=3, length=10)
 
 
 async def test_prover():

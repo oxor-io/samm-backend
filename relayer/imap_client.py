@@ -25,7 +25,7 @@ from tx_execution import change_transaction_status
 FETCH_COMMAND = 'fetch'
 # FETCH_CRITERIA_PARTS = 'FLAGS'
 # FETCH_CRITERIA_PARTS = f'(UID FLAGS BODY.PEEK[HEADER.FIELDS ({ID_HEADER_SET})])'
-FETCH_CRITERIA_PARTS = '(RFC822)'
+FETCH_CRITERIA_PARTS = '(UID RFC822)'
 
 FETCH_MESSAGE_DATA_SEQNUM = re.compile(rb'(?P<seqnum>\d+) FETCH.*')
 FETCH_MESSAGE_DATA_UID = re.compile(rb'.*UID (?P<uid>\d+).*')
@@ -105,10 +105,6 @@ async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
     resp = await imap_client.uid(FETCH_COMMAND, f'{uid_start}:{uid_end}', FETCH_CRITERIA_PARTS)
     print(f'Fetch mails UIDs={uid_start}:{uid_end} (lines={len(resp.lines)} / 3)')
 
-    if (len(resp.lines) - 1) % 3:
-        print(f'Wrong separation of lines: {resp.lines}')
-        raise
-
     if resp.result != 'OK':
         print(f'Fetch command return an error: {resp}')
         raise
@@ -131,6 +127,11 @@ async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
 
 async def process_imap_messages(lines: list) -> int:
     uid_max = 0
+
+    lines = lines[:-1]
+    if rem := len(lines) % 3:
+        lines = lines[:len(lines) - rem]
+        print(f'Excess lines: {lines}')
 
     for start, raw_msg, end in batched(lines[:-1], 3):
         fetch_command_without_literal = b'%s %s' % (start, end)
