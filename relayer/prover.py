@@ -1,7 +1,12 @@
+import asyncio
 import json
+import os
 
 from models import ApprovalData
 from models import ProofStruct
+
+PROVER_JSON_FILENAME = os.path.join(os.path.dirname(__file__), 'target/prover.json')
+PROOF_FILENAME = os.path.join(os.path.dirname(__file__), 'target/proof')
 
 
 async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
@@ -26,7 +31,7 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
     json_object = json.dumps(proverData, indent=4)
 
     # write to prover file
-    with open('./target/prover.json', 'w+') as file:
+    with open(PROVER_JSON_FILENAME, 'w+') as file:
         file.write(json_object)
 
     # node scripts/generateWitness.js
@@ -45,7 +50,7 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
 
     # read proof and split to public inputs, outputs (commit, pubkeyHash) and proof itself
     data = b''
-    with open('./target/proof', 'rb') as file:
+    with open(PROOF_FILENAME, 'rb') as file:
         data = file.read()
 
     # first output

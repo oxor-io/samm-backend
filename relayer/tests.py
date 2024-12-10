@@ -2,16 +2,14 @@
 import asyncio
 from email.parser import BytesParser
 
-from dotenv import load_dotenv
-load_dotenv()
-
+import conf
 import blockchain
 import crud
 import db
 from mailer.dkim_extractor import extract_dkim_data
-from main import parse_member_message
-from main import parse_body
-from main import extract_tx_data
+from member_message import parse_member_message
+from member_message import parse_body
+from member_message import extract_tx_data
 from models import TxData
 from models import ProofStruct
 from models import MemberMessage
@@ -20,7 +18,7 @@ from utils import get_padded_email
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import generate_sequences
-from main import generate_zk_proof
+from prover import generate_zk_proof
 from models import Sequence
 from models import ApprovalData
 
@@ -472,7 +470,7 @@ async def test_blockchain_execution_transaction():
 if __name__ == '__main__':
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    print("start tests");
+    print("start tests")
 
     loop = asyncio.get_event_loop()
     test_parse_body()
@@ -486,4 +484,4 @@ if __name__ == '__main__':
     loop.run_until_complete(test_blockchain_execution_transaction())
     test_tree_generation()
 
-    print("end tests");
+    print("end tests")

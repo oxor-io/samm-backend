@@ -45,8 +45,6 @@ async def idle_loop():
     print(f'Hello server: {resp}')
 
     await authenticate_oauth_token(imap_client)
-    # resp = await imap_client.list('INBOX\\', '*')
-    # print(f'List mail folder: {resp}')
 
     cursor = CURSORS[0]
     switch_folder = True
@@ -58,7 +56,7 @@ async def idle_loop():
                 cursor = CURSORS[0] if (idx + 1) >= len(CURSORS) else CURSORS[idx + 1]
                 resp = await imap_client.select(cursor.folder)
                 switch_folder = False
-                print(f'Select mail folder: folder={cursor.folder} resp={resp}')
+                print(f'Select mail folder: {cursor.folder}')
 
             uid_max = await fetch_imap_messages(imap_client, cursor.uid_start, cursor.uid_end)
             match uid_max:
@@ -76,6 +74,7 @@ async def idle_loop():
             await asyncio.sleep(60)
             await authenticate_oauth_token(imap_client)
         except:
+            # TODO: process exception
             logging.exception('Unknown exception')
             await asyncio.sleep(60)
             await authenticate_oauth_token(imap_client)
@@ -106,6 +105,10 @@ async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
     resp = await imap_client.uid(FETCH_COMMAND, f'{uid_start}:{uid_end}', FETCH_CRITERIA_PARTS)
     print(f'Fetch mails UIDs={uid_start}:{uid_end} (lines={len(resp.lines)} / 3)')
 
+    if (len(resp.lines) - 1) % 3:
+        print(f'Wrong separation of lines: {resp.lines}')
+        raise
+
     if resp.result != 'OK':
         print(f'Fetch command return an error: {resp}')
         raise
@@ -114,10 +117,10 @@ async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
     print(f'Fetched uid_max={uid_max}')
 
     idle = await imap_client.idle_start(timeout=20)
-    print(f'IDLE resp: {idle}')
+    print(f'IDLE: {idle.get_name()}')
 
     resp = await imap_client.wait_server_push()
-    print(f'QUEUE resp: {resp}')
+    print(f'QUEUE: {resp}')
 
     imap_client.idle_done()
 
