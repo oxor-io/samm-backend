@@ -4,6 +4,7 @@ from dotenv import load_dotenv
 SECRETS_FILE = os.environ.get('SECRETS_FILE')
 load_dotenv(SECRETS_FILE or '.env_relayer')
 
+INIT_DATABASE = bool(os.environ.get('INIT_DATABASE'))
 
 IMAP_HOST = os.environ.get('IMAP_HOST')
 IMAP_PORT = os.environ.get('IMAP_PORT')
