@@ -39,6 +39,7 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
     msg_hash = msg['Subject']
     print(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
 
+    print('Check relayer email')
     if relayer_email != conf.RELAYER_EMAIL:
         print(f'Email To does not belong to Relayer {relayer_email} != {conf.RELAYER_EMAIL}')
         return None
@@ -173,7 +174,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
 
         padded_member=padded_member,
         padded_member_length=padded_member_length,
-        secret = member.secret,
+        secret=member.secret,
         padded_relayer=padded_relayer,
         padded_relayer_length=padded_relayer_length,
 

@@ -1,16 +1,56 @@
 import asyncio
 import json
+import logging
 import os
 
 from models import ApprovalData
 from models import ProofStruct
 
-PROVER_JSON_FILENAME = os.path.join(os.path.dirname(__file__), 'target/prover.json')
-PROOF_FILENAME = os.path.join(os.path.dirname(__file__), 'target/proof')
+current_file_path = os.path.dirname(__file__)
+GENERATE_WITNESS_FILENAME = os.path.join(current_file_path, 'scripts/generateWitness.js')
+PROVER_JSON_FILENAME = os.path.join(current_file_path, 'target/prover.json')
+PROOF_FILENAME = os.path.join(current_file_path, 'target/proof')
+SAMM_2048_JSON_FILENAME = os.path.join(current_file_path, 'target/samm_2048.json')
+WITNESS_GZ_FILENAME = os.path.join(current_file_path, 'target/witness.gz')
 
 
-async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
-    proverData = {
+async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
+    match approval_data.key_size:
+        case 2048:
+            is_2048_sig = True
+        case 1024:
+            is_2048_sig = False
+        case _:
+            print('Unknown key_size:', approval_data.key_size)
+            return None
+
+    try:
+        _write_prover_json(approval_data)
+        await _generate_witness_gz()
+        await _generate_proof()
+        commit, pubkey_hash, proof = _read_proof()
+    except:
+        logging.exception('Proof generation is failed')
+
+        # TODO: to uncomment
+        # return None
+        commit, pubkey_hash, proof = '0', '0', '0'
+
+    print(f'---- GENERTE ZK PROOF: {proof}')
+    print(f'---- GENERTE ZK COMMIT: {commit}')
+    print(f'---- GENERTE ZK COMMIT: {pubkey_hash}')
+
+    return ProofStruct(
+        proof=proof.encode(),
+        commit=int(commit, 16),
+        domain=approval_data.domain,
+        pubkeyHash=int(pubkey_hash, 16).to_bytes(length=32),
+        is2048sig=is_2048_sig,
+    )
+
+
+def _write_prover_json(approval_data: ApprovalData):
+    prover_data = {
         "root": approval_data.root,
         "path_elements": approval_data.path_elements,
         "path_indices": approval_data.path_indices,
@@ -28,54 +68,67 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct:
     }
 
     # Serializing json
-    json_object = json.dumps(proverData, indent=4)
+    json_object = json.dumps(prover_data, indent=4)
 
     # write to prover file
     with open(PROVER_JSON_FILENAME, 'w+') as file:
         file.write(json_object)
 
+
+async def _generate_witness_gz() -> bool:
     # node scripts/generateWitness.js
     print('Generating witness... ⌛')
-    process = await asyncio.create_subprocess_exec('node', 'scripts/generateWitness.js')
+    process = await asyncio.create_subprocess_exec(
+        'node',
+        GENERATE_WITNESS_FILENAME,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
     print(f'subprocess: {process}')
-    await process.wait()
-    print('Generating witness... ✅')
+    (stdout, stderr) = await process.communicate()
+    if stderr:
+        print('Witness generation is failed ⭕: ', stderr)
+        # TODO: error
+        raise
 
+    print('Witness is generated ✅: ', stdout)
+
+
+async def _generate_proof():
     print('Generating proof... ⌛')
     # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o ./target/proof
-    process = await asyncio.create_subprocess_exec('bb', 'prove_ultra_keccak_honk', '-b', './target/samm_2048.json', '-w', './target/witness.gz', '-o', './target/proof')
+    process = await asyncio.create_subprocess_exec(
+        'bb',
+        'prove_ultra_keccak_honk',
+        '-b',
+        SAMM_2048_JSON_FILENAME,
+        '-w',
+        WITNESS_GZ_FILENAME,
+        '-o',
+        PROOF_FILENAME,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
     print(f'subprocess: {process}')
-    await process.wait()
-    print('Generating proof... ✅')
+    (stdout, stderr) = await process.communicate()
+    if stderr:
+        print('Proof generation is failed ⭕: ', stderr)
+        # TODO: error
+        raise
 
+    print('Proof is generated ✅: ', stdout)
+
+
+def _read_proof() -> tuple[str, str, str]:
     # read proof and split to public inputs, outputs (commit, pubkeyHash) and proof itself
-    data = b''
     with open(PROOF_FILENAME, 'rb') as file:
         data = file.read()
 
     # first output
     commit = data[5540:5572].hex()
     # second output
-    pubkeyHash = data[5572:5604].hex()
+    pubkey_hash = data[5572:5604].hex()
     # proof
     proof = data[4:100].hex() + data[5604:].hex()
 
-    match approval_data.key_size:
-        case 2048:
-            is_2048_sig = True
-        case 1024:
-            is_2048_sig = False
-        case _:
-            # TODO: error
-            raise
-
-    print(f'---- GENERTE ZK PROOF: {proof}')
-    print(f'---- GENERTE ZK COMMIT: {commit}')
-    print(f'---- GENERTE ZK COMMIT: {pubkeyHash}')
-    return ProofStruct(
-        proof=proof.encode(),
-        commit=int(commit, 16),
-        domain=approval_data.domain,
-        pubkeyHash=int(pubkeyHash, 16).to_bytes(length=32),
-        is2048sig=is_2048_sig,
-    )
+    return commit, pubkey_hash, proof

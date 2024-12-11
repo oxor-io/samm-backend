@@ -156,15 +156,19 @@ async def process_imap_messages(lines: list) -> int:
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
         if member_message:
             proof_struct = await generate_zk_proof(member_message.approval_data)
-            member_message.tx = await store_member_message(uid, member_message, proof_struct)
+            if not proof_struct:
+                # TODO: send response that we could not generate proof
+                pass
+            else:
+                member_message.tx = await store_member_message(uid, member_message, proof_struct)
 
-            is_confirmed, proof_structs = await check_threshold(member_message.tx)
-            if is_confirmed:
-                tx_status = await execute_transaction(member_message.tx, proof_structs)
-                await change_transaction_status(member_message.tx, tx_status)
+                is_confirmed, proof_structs = await check_threshold(member_message.tx)
+                if is_confirmed:
+                    tx_status = await execute_transaction(member_message.tx, proof_structs)
+                    await change_transaction_status(member_message.tx, tx_status)
 
-            # TODO: notice all members if the new tx is received
-            await send_response(member_message)
+                # TODO: notice all members if the new tx is received
+                # await send_response(member_message)
 
         if uid > uid_max:
             uid_max = uid

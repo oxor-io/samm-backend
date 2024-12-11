@@ -51,12 +51,14 @@ def generate_sequences(header: list[int], header_length: int, member: str, relay
     return from_seq, member_seq, to_seq, relayer_seq
 
 
+# TODO: multiple occurancies
 def find_subseq_index(arr: list[int], target: list[int]):
     start_idx = 0
     
     for i in range(len(arr)):
         if arr[i:i+len(target)] == target:
             start_idx = i
+            break
     
     return start_idx
 
@@ -64,7 +66,7 @@ def find_subseq_index(arr: list[int], target: list[int]):
 def find_seq_end(arr: list[int], length: int, start: int):
     end_idx = length - 1
     
-    for i in range(start,length-1):
+    for i in range(start, length-1):
         if arr[i] == 13 and arr[i+1] == 10:     # 13 - \r, 10 - \n
             end_idx = i-1
             break
