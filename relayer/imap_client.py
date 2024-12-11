@@ -168,7 +168,7 @@ async def process_imap_messages(lines: list) -> int:
                     await change_transaction_status(member_message.tx, tx_status)
 
                 # TODO: notice all members if the new tx is received
-                # await send_response(member_message)
+                await send_response(member_message)
 
         if uid > uid_max:
             uid_max = uid
