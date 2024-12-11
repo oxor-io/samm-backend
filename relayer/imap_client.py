@@ -131,8 +131,8 @@ async def process_imap_messages(lines: list) -> int:
 
     lines = lines[:-1]
     if rem := len(lines) % 3:
+        print(f'Excess lines detected. All lines: {lines}')
         lines = lines[:len(lines) - rem]
-        print(f'Excess lines: {lines}')
 
     for start, raw_msg, end in batched(lines, 3):
         fetch_command_without_literal = b'%s %s' % (start, end)
