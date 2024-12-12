@@ -31,7 +31,7 @@ COPY ./requirements.txt .
 RUN pip install -r requirements.txt
 
 # touch proof
-RUN touch ./target/proof
+RUN ash -c 'touch ./target/proof'
 
 # add app
 COPY . .
