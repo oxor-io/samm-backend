@@ -96,14 +96,13 @@ def extract_header(
         raise MessageFormatError("invalid c= value: %s" % e.args[0])
 
     hasher_algorithm = HASH_ALGORITHMS[sig[b'a']]
-    hasher = HashThrough(hasher_algorithm(), debug=False)
+    hasher = HashThrough(hasher_algorithm(), debug=True)
     headers = canon_policy.canonicalize_headers(original_headers)
-    signed_headers = hash_headers(
-        hasher, canon_policy, headers, include_headers, sig_headers, sig)
 
-    signed_headers_merged = b''.join([b'%s:%s' % (k, v) for k, v in signed_headers])
-    dkim_headers_without_sig = sig_headers[1].strip().split(b'; b=')[0]
-    signed_headers_merged += b'dkim-signature:' + dkim_headers_without_sig + b'; b='
+    # NOTE: hasher is updated inside the function
+    hash_headers(hasher, canon_policy, headers, include_headers, sig_headers, sig)
+
+    signed_headers_merged = hasher.hashed()
 
     # TODO: 1024 only?
     signed_headers_merged_len = len(signed_headers_merged)

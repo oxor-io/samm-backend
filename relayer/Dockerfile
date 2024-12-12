@@ -14,8 +14,10 @@ RUN apk update \
   && apk cache clean
 
 # download and execute bbup
-RUN curl -L bbup.dev | ash
-RUN bbup -v 0.57.0
+# RUN curl -L bbup.dev | ash
+# RUN bbup -v 0.57.0
+RUN curl -L https://raw.githubusercontent.com/AztecProtocol/aztec-packages/refs/heads/master/barretenberg/bbup/install | ash
+RUN ash /root/.bb/bbup -v 0.57.0
 RUN ln -s /root/.bb/bb /usr/local/bin/bb
 
 # install npm dependencies
