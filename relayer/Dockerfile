@@ -30,5 +30,8 @@ RUN pip install --upgrade pip
 COPY ./requirements.txt .
 RUN pip install -r requirements.txt
 
+# touch proof
+RUN touch ./target/proof
+
 # add app
 COPY . .
