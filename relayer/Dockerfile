@@ -30,8 +30,8 @@ RUN pip install --upgrade pip
 COPY ./requirements.txt .
 RUN pip install -r requirements.txt
 
-# touch proof
-RUN ash -c 'touch ./target/proof'
-
 # add app
 COPY . .
+
+# touch proof
+RUN touch ./target/proof
