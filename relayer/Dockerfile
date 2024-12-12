@@ -32,6 +32,3 @@ RUN pip install -r requirements.txt
 
 # add app
 COPY . .
-
-# touch proof
-RUN touch ./target/proof

@@ -9,7 +9,6 @@ from models import ProofStruct
 current_file_path = os.path.dirname(__file__)
 GENERATE_WITNESS_FILENAME = os.path.join(current_file_path, 'scripts/generateWitness.js')
 PROVER_JSON_FILENAME = os.path.join(current_file_path, 'target/prover.json')
-PROOF_FILENAME = os.path.join(current_file_path, 'target/proof')
 SAMM_2048_JSON_FILENAME = os.path.join(current_file_path, 'target/samm_2048.json')
 WITNESS_GZ_FILENAME = os.path.join(current_file_path, 'target/witness.gz')
 
@@ -27,8 +26,7 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
     try:
         _write_prover_json(approval_data)
         await _generate_witness_gz()
-        await _generate_proof()
-        commit, pubkey_hash, proof = _read_proof()
+        commit, pubkey_hash, proof = await _generate_proof()
     except:
         logging.exception('Proof generation is failed')
 
@@ -75,7 +73,7 @@ def _write_prover_json(approval_data: ApprovalData):
         file.write(json_object)
 
 
-async def _generate_witness_gz() -> bool:
+async def _generate_witness_gz():
     # node scripts/generateWitness.js
     print('Generating witness... ⌛')
     process = await asyncio.create_subprocess_exec(
@@ -94,9 +92,9 @@ async def _generate_witness_gz() -> bool:
     print('Witness is generated ✅: ', stdout)
 
 
-async def _generate_proof():
+async def _generate_proof() -> tuple[str, str, str]:
     print('Generating proof... ⌛')
-    # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o ./target/proof
+    # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o -
     process = await asyncio.create_subprocess_exec(
         'bb',
         'prove_ultra_keccak_honk',
@@ -105,7 +103,7 @@ async def _generate_proof():
         '-w',
         WITNESS_GZ_FILENAME,
         '-o',
-        PROOF_FILENAME,
+        '-',
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -116,19 +114,14 @@ async def _generate_proof():
         # TODO: error
         raise
 
-    print('Proof is generated ✅: ', stdout)
+    print('Proof is generated ✅')
 
-
-def _read_proof() -> tuple[str, str, str]:
-    # read proof and split to public inputs, outputs (commit, pubkeyHash) and proof itself
-    with open(PROOF_FILENAME, 'rb') as file:
-        data = file.read()
-
+    # split to public inputs, outputs (commit, pubkeyHash) and proof itself
     # first output
-    commit = data[5540:5572].hex()
+    commit = stdout[5540:5572].hex()
     # second output
-    pubkey_hash = data[5572:5604].hex()
+    pubkey_hash = stdout[5572:5604].hex()
     # proof
-    proof = data[4:100].hex() + data[5604:].hex()
+    proof = stdout[4:100].hex() + stdout[5604:].hex()
 
     return commit, pubkey_hash, proof
