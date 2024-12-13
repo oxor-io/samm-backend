@@ -31,7 +31,7 @@ async def get_transactions(
 ):
     # TODO: check samm_id in member.samms
     statement = select(Transaction).where(
-        (Transaction.status == status) and (Transaction.samm_id == samm_id)
+        (Transaction.status == status) & (Transaction.samm_id == samm_id)
     ).offset(offset).limit(limit)
     transactions = (await session.scalars(statement)).all()
     return transactions

@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import Enum
+from pydantic import field_serializer
 from sqlalchemy import BigInteger
 from sqlalchemy import Enum as sa_Enum
 from sqlmodel import Column
@@ -73,3 +74,12 @@ class Approval(ApprovalBase, table=True):
 
 class ApprovalPublic(ApprovalBase):
     id: int
+
+    @field_serializer('commit')
+    def serialize_commit(self, commit: bytes):
+        return int.from_bytes(commit)
+
+    @field_serializer('pubkey_hash')
+    def serialize_pubkey_hash(self, pubkey_hash: bytes):
+        # int(pubkey_hash, 16).to_bytes(length=32),
+        return hex(int.from_bytes(pubkey_hash))

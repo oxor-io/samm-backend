@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 import asyncio
+from datetime import datetime
 from email.parser import BytesParser
 
 import conf
-import blockchain
 import crud
 import db
 from mailer.dkim_extractor import extract_dkim_data
 from member_message import parse_member_message
 from member_message import parse_body
 from member_message import extract_tx_data
-from models import TxData
 from models import ProofStruct
 from models import MemberMessage
 from models import TransactionOperation
@@ -19,8 +18,12 @@ from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import generate_sequences
 from prover import generate_zk_proof
+from tx_execution import execute_transaction
 from models import Sequence
 from models import ApprovalData
+from models import Transaction
+from models import TransactionStatus
+from models import Samm
 
 
 approve_eml = \
@@ -489,21 +492,35 @@ async def test_blockchain_execution_transaction():
             is2048sig=True,
         ),
     ]
-    tx_data = TxData(
+    tx = Transaction(
+        id=123,
+        msg_hash='0x123aaa',
         to='0x96B4215538d1B838a6A452d6F50c02e7fA258f43',
         value=123123123123,
         data=b'123123123',
         operation=TransactionOperation.call,
         nonce=0,
         deadline=11123123123123123,
+        samm_id=123,
+        samm=Samm(
+            id=123,
+            nonce=0,
+            samm_address='96B4215538d1B838a6A452d6F50c02e7fA258f43',
+            safe_address='123',
+            threshold=1,
+            expiration_period=1,
+            root='1',
+            chain_id=1,
+        ),
+        status=TransactionStatus.pending,
+        created_at=datetime.now(),
     )
-    res = await blockchain.execute_transaction(
-        samm_address='96B4215538d1B838a6A452d6F50c02e7fA258f43',
-        tx_data=tx_data,
+    tx_status = await execute_transaction(
+        tx=tx,
         proof_structs=proofs,
     )
-    # TODO: uncomment
-    # assert res
+    # TODO: refactor to check success
+    assert tx_status == TransactionStatus.failed
 
 
 if __name__ == '__main__':

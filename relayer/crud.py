@@ -43,8 +43,16 @@ async def create_tx(initial_data: InitialData) -> Transaction:
 
 
 async def change_transaction_status(tx_id: int, status: TransactionStatus):
-    # TODO:
-    pass
+    async with AsyncSession(engine) as session:
+        statement = select(Transaction).where(Transaction.id == tx_id)
+        results = await session.execute(statement)
+        tx = results.one()
+
+        tx.status = status
+        session.add(tx)
+        await session.commit()
+        await session.refresh(tx)
+        return tx
 
 
 async def create_approval(tx: Transaction, member: Member, proof_struct: ProofStruct, uid: int) -> Approval:

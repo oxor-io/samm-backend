@@ -1,3 +1,4 @@
+import logging
 
 import blockchain
 import crud
@@ -30,31 +31,35 @@ async def check_threshold(tx: Transaction) -> tuple[bool, list[ProofStruct]]:
 
 
 async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct]) -> TransactionStatus:
-    tx_data = TxData(
-        to=tx.to,
-        value=tx.value,
-        data=tx.data,
-        operation=TransactionOperation(tx.operation),
-        nonce=tx.nonce,
-        deadline=tx.deadline,
-    )
-    is_sent = await blockchain.execute_transaction(tx.samm.samm_address, tx_data, proof_structs)
-    return TransactionStatus.sent if is_sent else TransactionStatus.confirmed
+    try:
+        tx_data = TxData(
+            to=tx.to,
+            value=tx.value,
+            data=tx.data,
+            operation=TransactionOperation(tx.operation),
+            nonce=tx.nonce,
+            deadline=tx.deadline,
+        )
+        success, tx_receipt = await blockchain.execute_transaction(tx.samm.samm_address, tx_data, proof_structs)
+    except:
+        logging.exception('Unknow exception during blockchain communication.')
+    else:
+        match (success, tx_receipt):
+            case False, None:
+                # contract revert error
+                return TransactionStatus.failed
+            case False, _:
+                # contract return False
+                return TransactionStatus.failed
+            case True, None:
+                # transaction was sent, but timeout was reached
+                return TransactionStatus.sent
+            case True, _:
+                return TransactionStatus.success
+
+    return TransactionStatus.failed
 
 
 async def change_transaction_status(tx: Transaction, status: TransactionStatus):
-    # match status:
-    #     case TransactionStatus.pending:
-    #         # do nothing
-    #         pass
-    #     case TransactionStatus.success:
-    #         # TODO: change tx.status to success
-    #         pass
-    #     case TransactionStatus.confirmed | TransactionStatus.sent | TransactionStatus.failed:
-    #         # TODO: sent - strange state of tx
-    #         # TODO: change tx.status
-    #         print('tx')
-    #     case _:
-    #         print('Incorrect status')
-    #         # TODO: return?
     await crud.change_transaction_status(tx.tx_id, status)
+
