@@ -2,6 +2,7 @@ from datetime import datetime
 from datetime import timezone
 from sqlmodel import select
 from sqlalchemy import func
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db import engine
@@ -38,14 +39,13 @@ async def create_tx(initial_data: InitialData) -> Transaction:
         session.add(tx)
         await session.commit()
         await session.refresh(tx)
-
-    return tx
+        return tx
 
 
 async def change_transaction_status(tx_id: int, status: TransactionStatus):
     async with AsyncSession(engine) as session:
         statement = select(Transaction).where(Transaction.id == tx_id)
-        results = await session.execute(statement)
+        results = await session.scalars(statement)
         tx = results.one()
 
         tx.status = status
@@ -98,7 +98,7 @@ async def get_member_by_email(member_email: str) -> Member:
 
 async def get_tx_by_msg_hash(msg_hash: str) -> Transaction:
     async with AsyncSession(engine) as session:
-        statement = select(Transaction).where(Transaction.msg_hash == msg_hash)
+        statement = select(Transaction).where(Transaction.msg_hash == msg_hash).options(selectinload(Transaction.samm))
         results = await session.scalars(statement)
         return results.first()
 
@@ -113,7 +113,7 @@ async def get_approval_by_uid(email_uid: int) -> Approval:
 async def get_approval_by_tx_and_email(tx_id: int, member_id: int) -> Approval:
     async with AsyncSession(engine) as session:
         statement = select(Approval).where(
-            (Approval.transaction_id == tx_id) and (Approval.member_id == member_id)
+            (Approval.transaction_id == tx_id) & (Approval.member_id == member_id)
         )
         results = await session.scalars(statement)
         return results.first()
@@ -138,7 +138,7 @@ async def check_threshold_is_confirmed(tx_id: int, samm_id: int) -> bool:
 
 async def get_approvals(tx_id: int):
     async with AsyncSession(engine) as session:
-        statement = select(Approval.proof).where(
+        statement = select(Approval).where(
             (Approval.transaction_id == tx_id)
         )
         results = await session.scalars(statement)

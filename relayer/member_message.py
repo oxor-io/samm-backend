@@ -200,7 +200,8 @@ async def store_member_message(uid: int, msg: MemberMessage, proof_struct: Proof
         raise
 
     if msg.initial_data:
-        tx = await crud.create_tx(msg.initial_data)
+        await crud.create_tx(msg.initial_data)
+        tx = await crud.get_tx_by_msg_hash(msg.initial_data.msg_hash)
 
     await crud.create_approval(tx, msg.member, proof_struct, uid)
     print(f'UID={uid}')

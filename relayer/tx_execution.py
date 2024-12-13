@@ -17,7 +17,7 @@ async def check_threshold(tx: Transaction) -> tuple[bool, list[ProofStruct]]:
     for approval in await crud.get_approvals(tx.id):
         proof_structs.append(ProofStruct(
             proof=approval.proof,
-            commit=approval.commit.from_bytes(32),
+            commit=int.from_bytes(approval.commit),
             domain=approval.domain,
             pubkeyHash=approval.pubkey_hash,
             is2048sig=approval.is_2048_sig,
@@ -61,5 +61,5 @@ async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct])
 
 
 async def change_transaction_status(tx: Transaction, status: TransactionStatus):
-    await crud.change_transaction_status(tx.tx_id, status)
+    await crud.change_transaction_status(tx.id, status)
 
