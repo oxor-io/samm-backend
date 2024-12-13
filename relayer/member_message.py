@@ -78,6 +78,9 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
             print(f'Wrong initial data: body={body}')
             return None
         members = await crud.get_members_by_samm(samm_id)
+        if not members:
+            print(f'No members for samm_id: {samm_id}')
+            return None
         initial_data = InitialData(
             samm_id=samm_id,
             msg_hash=msg_hash,
