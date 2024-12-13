@@ -34,6 +34,9 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
         # return None
         commit, pubkey_hash, proof = '0', '0', '0'
 
+    if not commit or not pubkey_hash or not proof:
+        commit, pubkey_hash, proof = '0', '0', '0'
+
     print(f'---- GENERTE ZK PROOF: {proof}')
     print(f'---- GENERTE ZK COMMIT: {commit}')
     print(f'---- GENERTE ZK COMMIT: {pubkey_hash}')
