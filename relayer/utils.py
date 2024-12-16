@@ -7,6 +7,12 @@ CHUNK_HEX_LEN = CHUNK_LEN * 2
 TREE_HEIGHT = 8
 
 
+def without_0x(x: str | bytes) -> str | bytes:
+    if isinstance(x, str) and x.startswith('0x') or isinstance(x, bytes) and x.startswith(b'0x'):
+        return x[2:]
+    return x
+
+
 def convert_str_to_int_list(x: str) -> list[int]:
     return list(map(ord, x))
 
