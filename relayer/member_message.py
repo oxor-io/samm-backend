@@ -15,9 +15,9 @@ from models import InitialData
 from models import Member
 from models import MemberMessage
 from models import ProofStruct
-from models import Transaction
-from models import TransactionOperation
-from models import TxData
+from models import Txn
+from models import TxnOperation
+from models import TxnData
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import get_padded_email
@@ -69,13 +69,13 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
         return None
 
     initial_data: InitialData | None = None
-    tx = await crud.get_tx_by_msg_hash(msg_hash)
-    if not tx:
+    txn = await crud.get_txn_by_msg_hash(msg_hash)
+    if not txn:
         logger.info('Transaction initialization')
 
         body = parse_body(msg)
-        samm_id, tx_data = extract_tx_data(body)
-        if not samm_id or not tx_data:
+        samm_id, txn_data = extract_txn_data(body)
+        if not samm_id or not txn_data:
             logger.error(f'Wrong initial data: body={body}')
             return None
         members = await crud.get_members_by_samm(samm_id)
@@ -85,23 +85,23 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
         initial_data = InitialData(
             samm_id=samm_id,
             msg_hash=msg_hash,
-            tx_data=tx_data,
+            txn_data=txn_data,
             members=members,
         )
     else:
         logger.info('Transaction approval')
 
-        # TODO: check tx_status or deadline if approval
-        if await crud.get_approval_by_tx_and_email(tx_id=tx.id, member_id=member.id):
-            logger.error(f'Dublicate approval: tx={tx.id} member={member.id}')
+        # TODO: check txn_status or deadline if approval
+        if await crud.get_approval_by_txn_and_email(txn_id=txn.id, member_id=member.id):
+            logger.error(f'Dublicate approval: tx={txn.id} member={member.id}')
             return None
-        members = await crud.get_members_by_tx(tx.id)
+        members = await crud.get_members_by_txn(txn.id)
 
     logger.info('Assemble approval data')
     approval_data = await create_approval_data(raw_msg, msg_hash, members, member, relayer_email)
     return MemberMessage(
         member=member,
-        tx=tx,
+        txn=txn,
         initial_data=initial_data,
         approval_data=approval_data,
     )
@@ -136,7 +136,7 @@ def _parse_part_body(part: Message) -> str:
     return ''
 
 
-def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
+def extract_txn_data(body: str) -> tuple[int, TxnData] | tuple[None, None]:
     # TODO: extraction format
     # TODO: newline character is not taken into account!
     m = re.match(r'samm_id=(?P<samm_id>.*);'
@@ -149,11 +149,11 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
     try:
         return (
             int(m.group('samm_id')),
-            TxData(
+            TxnData(
                 to=str(m.group('to')),
                 value=int(m.group('value')),
                 data=bytes(m.group('data').encode()),
-                operation=TransactionOperation(m.group('operation')),
+                operation=TxnOperation(m.group('operation')),
                 nonce=int(m.group('nonce')),
                 deadline=int(m.group('deadline')),
             )
@@ -162,7 +162,7 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
         logger.exception('Tx data extraction is failed.')
         return None, None
 
-    # TODO: check tx_data fields
+    # TODO: check txn_data fields
 
 
 async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
@@ -208,18 +208,18 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     )
 
 
-async def store_member_message(uid: int, msg: MemberMessage, proof_struct: ProofStruct) -> Transaction:
-    tx = msg.tx
-    if msg.initial_data and tx or not msg.initial_data and not tx:
+async def store_member_message(uid: int, msg: MemberMessage, proof_struct: ProofStruct) -> Txn:
+    txn = msg.txn
+    if msg.initial_data and txn or not msg.initial_data and not txn:
         raise
 
     if msg.initial_data:
-        await crud.create_tx(msg.initial_data)
-        tx = await crud.get_tx_by_msg_hash(msg.initial_data.msg_hash)
+        await crud.create_txn(msg.initial_data)
+        txn = await crud.get_txn_by_msg_hash(msg.initial_data.msg_hash)
 
-    await crud.create_approval(tx, msg.member, proof_struct, uid)
+    await crud.create_approval(txn, msg.member, proof_struct, uid)
     logger.info('New approval is stored')
-    return tx
+    return txn
 
 
 async def send_response(msg: MemberMessage):

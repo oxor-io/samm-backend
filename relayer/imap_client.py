@@ -11,9 +11,9 @@ from member_message import parse_member_message
 from member_message import store_member_message
 from member_message import send_response
 from prover import generate_zk_proof
-from tx_execution import check_threshold
-from tx_execution import execute_transaction
-from tx_execution import change_transaction_status
+from txn_execution import check_threshold
+from txn_execution import execute_txn
+from txn_execution import change_txn_status
 from logger import logger
 
 # https://github.com/bamthomas/aioimaplib
@@ -160,12 +160,12 @@ async def process_imap_messages(lines: list) -> int:
                 # TODO: send response that we could not generate proof
                 pass
             else:
-                member_message.tx = await store_member_message(uid, member_message, proof_struct)
+                member_message.txn = await store_member_message(uid, member_message, proof_struct)
 
-                is_confirmed, proof_structs = await check_threshold(member_message.tx)
+                is_confirmed, proof_structs = await check_threshold(member_message.txn)
                 if is_confirmed:
-                    tx_status = await execute_transaction(member_message.tx, proof_structs)
-                    await change_transaction_status(member_message.tx, tx_status)
+                    txn_status = await execute_txn(member_message.txn, proof_structs)
+                    await change_txn_status(member_message.txn, txn_status)
 
                 # TODO: notice all members if the new tx is received
                 await send_response(member_message)

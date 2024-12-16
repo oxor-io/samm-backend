@@ -29,7 +29,7 @@ class Samm(SammBase, table=True):
 
     owners: list[Owner] = Relationship(back_populates='samms', link_model=SammOwnerLink)
     members: list['Member'] = Relationship(back_populates='samms', link_model=SammMemberLink)
-    transactions: list['Transaction'] = Relationship(back_populates='samm')
+    txns: list['Txn'] = Relationship(back_populates='samm')
 
 
 class SammPublic(SammBase):

@@ -16,8 +16,8 @@ if __name__ == '__main__':
     loop = asyncio.get_event_loop()
     if conf.INIT_DATABASE:
         loop.run_until_complete(db.init_db())
-        # TODO: remove or refactor the fill_db_initial_tx function before release
-        loop.run_until_complete(crud.fill_db_initial_tx(first_user_email='artem@oxor.io'))
+        # TODO: remove or refactor the fill_db_initial_txn function before release
+        loop.run_until_complete(crud.fill_db_initial_txn(first_user_email='artem@oxor.io'))
 
     while True:
         try:

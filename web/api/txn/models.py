@@ -10,18 +10,19 @@ from sqlmodel import Relationship
 
 from api.samm.models import Samm
 from api.member.models import Member
-from api.member.models import MemberTransactionLink
+from api.member.models import MemberTxnLink
 
 
 # TODO: add indexes
 # Models from Relayer
 
-class TransactionOperation(str, Enum):
+# TODO: replace in table
+class TxnOperation(str, Enum):
     call = 'CALL'
     delegate_call = 'DELEGATECALL'
 
 
-class TransactionStatus(str, Enum):
+class TxnStatus(str, Enum):
     pending = 'pending'
     confirmed = 'confirmed'
     sent = 'sent'
@@ -29,7 +30,7 @@ class TransactionStatus(str, Enum):
     failed = 'failed'
 
 
-class TransactionBase(SQLModel):
+class TxnBase(SQLModel):
     msg_hash: str
     to: str
     value: int = Field(sa_column=Column(BigInteger()))
@@ -39,23 +40,23 @@ class TransactionBase(SQLModel):
     deadline: int = Field(sa_column=Column(BigInteger()))
     samm_id: int = Field(foreign_key='samm.id')
     # TODO: set default status
-    status: TransactionStatus = Field(sa_column=Column(sa_Enum(TransactionStatus)))
+    status: TxnStatus = Field(sa_column=Column(sa_Enum(TxnStatus)))
     created_at: datetime
 
 
-class Transaction(TransactionBase, table=True):
+class Txn(TxnBase, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
 
-    members: list[Member] = Relationship(back_populates='transactions', link_model=MemberTransactionLink)
-    samm: Samm = Relationship(back_populates='transactions')
+    members: list[Member] = Relationship(back_populates='txns', link_model=MemberTxnLink)
+    samm: Samm = Relationship(back_populates='txns')
 
 
-class TransactionPublic(TransactionBase):
+class TxnPublic(TxnBase):
     id: int
 
 
 class ApprovalBase(SQLModel):
-    transaction_id: int = Field(foreign_key='transaction.id')
+    txn_id: int = Field(foreign_key='txn.id')
     proof: bytes
     commit: bytes
     domain: str

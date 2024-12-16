@@ -10,12 +10,12 @@ from sqlalchemy import Enum as sa_Enum
 from sqlmodel import Relationship
 
 
-class TransactionOperation(str, Enum):
+class TxnOperation(str, Enum):
     call = 'CALL'
     delegate_call = 'DELEGATECALL'
 
 
-class TransactionStatus(str, Enum):
+class TxnStatus(str, Enum):
     pending = 'pending'
     confirmed = 'confirmed'
     sent = 'sent'
@@ -34,9 +34,9 @@ class SammMemberLink(SQLModel, table=True):
     member_id: int | None = Field(default=None, foreign_key='member.id', primary_key=True)
 
 
-class MemberTransactionLink(SQLModel, table=True):
+class MemberTxnLink(SQLModel, table=True):
     member_id: int | None = Field(default=None, foreign_key='member.id', primary_key=True)
-    transaction_id: int | None = Field(default=None, foreign_key='transaction.id', primary_key=True)
+    txn_id: int | None = Field(default=None, foreign_key='txn.id', primary_key=True)
 
 
 class SammOwnerLink(SQLModel, table=True):
@@ -64,7 +64,7 @@ class Samm(SQLModel, table=True):
 
     owners: list[Owner] = Relationship(back_populates='samms', link_model=SammOwnerLink)
     members: list['Member'] = Relationship(back_populates='samms', link_model=SammMemberLink)
-    transactions: list['Transaction'] = Relationship(back_populates='samm')
+    txns: list['Txn'] = Relationship(back_populates='samm')
 
 
 class Member(SQLModel, table=True):
@@ -81,11 +81,11 @@ class Member(SQLModel, table=True):
     hashed_password: str
 
     samms: list[Samm] = Relationship(back_populates='members', link_model=SammMemberLink)
-    transactions: list['Transaction'] = Relationship(back_populates='members', link_model=MemberTransactionLink)
+    txns: list['Txn'] = Relationship(back_populates='members', link_model=MemberTxnLink)
     approvals: list['Approval'] = Relationship(back_populates='member')
 
 
-class Transaction(SQLModel, table=True):
+class Txn(SQLModel, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
     msg_hash: str
     to: str
@@ -96,16 +96,16 @@ class Transaction(SQLModel, table=True):
     deadline: int = Field(sa_column=Column(BigInteger()))
     samm_id: int = Field(foreign_key='samm.id')
     # TODO: set default status
-    status: TransactionStatus = Field(sa_column=Column(sa_Enum(TransactionStatus)))
+    status: TxnStatus = Field(sa_column=Column(sa_Enum(TxnStatus)))
     created_at: datetime
 
-    members: list[Member] = Relationship(back_populates='transactions', link_model=MemberTransactionLink)
-    samm: Samm = Relationship(back_populates='transactions')
+    members: list[Member] = Relationship(back_populates='txns', link_model=MemberTxnLink)
+    samm: Samm = Relationship(back_populates='txns')
 
 
 class Approval(SQLModel, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
-    transaction_id: int = Field(foreign_key='transaction.id')
+    txn_id: int = Field(foreign_key='txn.id')
     member_id: int = Field(foreign_key='member.id')
     proof: bytes
     commit: bytes   # NOTE: fixed size
@@ -126,11 +126,11 @@ class MailboxCursor:
 
 
 @dataclass
-class TxData:
+class TxnData:
     to: str
     value: int
     data: bytes
-    operation: TransactionOperation
+    operation: TxnOperation
     nonce: int
     deadline: int
 
@@ -139,7 +139,7 @@ class TxData:
 class InitialData:
     samm_id: int
     msg_hash: str
-    tx_data: TxData
+    txn_data: TxnData
     members: list[Member]
 
 
@@ -184,6 +184,6 @@ class ProofStruct:
 @dataclass
 class MemberMessage:
     member: Member
-    tx: Transaction | None
+    txn: Txn | None
     initial_data: InitialData | None
     approval_data: ApprovalData

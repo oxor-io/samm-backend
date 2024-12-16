@@ -7,8 +7,8 @@ from web3.exceptions import ContractCustomError
 from web3.types import TxReceipt
 
 from models import ProofStruct
-from models import TxData
-from models import TransactionOperation
+from models import TxnData
+from models import TxnOperation
 from utils import without_0x
 
 ADDRESS_SIZE = 20
@@ -25,9 +25,9 @@ def convert_address_from_str(address: str) -> Address:
     )
 
 
-async def execute_transaction(
+async def execute_txn(
         samm_address: str,
-        tx_data: TxData,
+        txn_data: TxnData,
         proof_structs: list[ProofStruct]
 ) -> tuple[bool, TxReceipt | None]:
     w3 = AsyncWeb3(AsyncWeb3.AsyncHTTPProvider(RPC_URL))
@@ -44,24 +44,24 @@ async def execute_transaction(
         proof_struct.proof = bytes.fromhex(proof_struct.proof.decode())
 
     params = (
-        convert_address_from_str(tx_data.to),
-        tx_data.value,
-        bytes.fromhex(tx_data.data.decode()[2:]),
-        list(TransactionOperation).index(tx_data.operation),
+        convert_address_from_str(txn_data.to),
+        txn_data.value,
+        bytes.fromhex(txn_data.data.decode()[2:]),
+        list(TxnOperation).index(txn_data.operation),
         [proof.__dict__ for proof in proof_structs],
-        tx_data.deadline,
+        txn_data.deadline,
     )
 
     # TODO: add try-cache network exceptions
     try:
-        tx_hash = await contract_instance.functions.executeTransactionReturnData(*params).transact({'from': acc.address})
+        txn_hash = await contract_instance.functions.executeTransactionReturnData(*params).transact({'from': acc.address})
     except ContractCustomError as ex:
         print('ContractCustomError: ', ex)
         return False, None
 
     # Wait for the transaction to be mined, and get the transaction receipt
-    tx_receipt = await w3.eth.wait_for_transaction_receipt(tx_hash, timeout=180)
-    if not tx_receipt:
+    txn_receipt = await w3.eth.wait_for_transaction_receipt(txn_hash, timeout=180)
+    if not txn_receipt:
         return True, None
 
     # TODO: check reorg
@@ -70,7 +70,7 @@ async def execute_transaction(
     # if receipt_returned_True:
     success = True
 
-    return success, tx_receipt
+    return success, txn_receipt
 
 
 async def get_message_hash(

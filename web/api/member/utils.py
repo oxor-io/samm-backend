@@ -7,6 +7,7 @@ CHUNK_LEN = 31
 CHUNK_HEX_LEN = CHUNK_LEN * 2
 TREE_HEIGHT = 8
 
+
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
