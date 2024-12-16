@@ -1,5 +1,5 @@
 import re
-import quopri
+from email import policy
 from email.message import Message
 from email.parser import BytesParser
 from email.utils import parseaddr
@@ -22,64 +22,65 @@ from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
 from utils import get_padded_email
 from utils import generate_sequences
+from logger import logger
 
 
 async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None:
     # verify DKIM
-    print('Verify DKIM')
+    logger.info('Verify DKIM')
     if not await dkim.verify_async(raw_msg):
-        print('DKIM is not valid')
+        logger.warning('DKIM is not valid')
         return None
 
     # parse email message
-    print('Parse raw message')
-    msg: Message = BytesParser().parsebytes(raw_msg)
+    logger.info('Parse raw message')
+    msg: Message = BytesParser(policy=policy.default).parsebytes(raw_msg)
     _, member_email = parseaddr(msg['From'])
     _, relayer_email = parseaddr(msg['To'])
     msg_hash = msg['Subject']
-    print(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
+    logger.info(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
 
-    print('Check relayer email')
+    logger.info('Check relayer email')
     if relayer_email != conf.RELAYER_EMAIL:
-        print(f'Email To does not belong to Relayer {relayer_email} != {conf.RELAYER_EMAIL}')
+        logger.warning(f'Email "To" does not belong to Relayer: {relayer_email} != {conf.RELAYER_EMAIL}')
         return None
 
-    print('Check msg_hash')
+    logger.info('Check msg_hash')
     # # TODO: check msgHash format
     # pattern = re.compile(r'\b[0-9a-fA-F]{64}\b')
     # match = re.match(pattern, 'hash')
     # print(match.group(0))  # hash
     if not msg_hash:
-        print(f'msgHash format is not correct: {msg_hash}')
+        logger.warning(f'msgHash format is not correct: {msg_hash}')
         return None
 
     # TODO: what the samm_id is used?
-    print('Check member FROM email')
+    logger.info('Check member FROM email')
     member = await crud.get_member_by_email(member_email)
     if not member:
-        print(f'Email From is not a member: {member_email}')
+        logger.warning(f'Email "From" is not a member: {member_email}')
         return None
 
     # TODO: optimize via IMAP server flags
-    print('Check already processed message UID')
+    logger.info('Check already processed message UID')
     if await crud.get_approval_by_uid(email_uid=uid):
-        print(f'The email UID already was registered: {uid}')
+        logger.error(f'The email UID already was registered: {uid}')
         # TODO: mb raise
         return None
 
     initial_data: InitialData | None = None
     tx = await crud.get_tx_by_msg_hash(msg_hash)
     if not tx:
-        print('Transaction initialization')
+        logger.info('Transaction initialization')
 
         body = parse_body(msg)
         samm_id, tx_data = extract_tx_data(body)
         if not samm_id or not tx_data:
-            print(f'Wrong initial data: body={body}')
+            logger.error(f'Wrong initial data: body={body}')
             return None
         members = await crud.get_members_by_samm(samm_id)
         if not members:
-            print(f'No members for samm_id: {samm_id}')
+            logger.error(f'No members for samm_id: {samm_id}')
             return None
         initial_data = InitialData(
             samm_id=samm_id,
@@ -88,15 +89,15 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
             members=members,
         )
     else:
-        print('Transaction approval')
+        logger.info('Transaction approval')
 
         # TODO: check tx_status or deadline if approval
         if await crud.get_approval_by_tx_and_email(tx_id=tx.id, member_id=member.id):
-            print(f'Dublicate approval: tx={tx.id} member={member.id}')
+            logger.error(f'Dublicate approval: tx={tx.id} member={member.id}')
             return None
         members = await crud.get_members_by_tx(tx.id)
 
-    print('Assemble approval data')
+    logger.info('Assemble approval data')
     approval_data = await create_approval_data(raw_msg, msg_hash, members, member, relayer_email)
     return MemberMessage(
         member=member,
@@ -107,20 +108,30 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
 
 
 def parse_body(msg: Message) -> str:
-    if not msg.is_multipart():
-        # not multipart - i.e. plain text, no attachments, keeping fingers crossed
-        return msg.get_payload()
+    if msg.is_multipart():
+        # TODO: check initial_eml
+        # return '\n'.join(_parse_part_body(part) for part in msg.walk())
+        for part in msg.walk():
+            body = _parse_part_body(part)
+            if body:
+                return body
+    else:
+        return _parse_part_body(msg)
 
-    for part in msg.walk():
-        c_type = part.get_content_type()
-        c_disposition = str(part.get('Content-Disposition'))
-        c_transfer_encoding = str(part.get('Content-Transfer-Encoding'))
 
-        # skip any text/plain (txt) attachments
-        if c_type == 'text/plain' and 'attachment' not in c_disposition:
-            if c_transfer_encoding == 'quoted-printable':
-                return quopri.decodestring(part.get_payload().encode()).decode()
-            return part.get_payload()
+def _parse_part_body(part: Message) -> str:
+    content_type = part.get_content_type()
+    disposition = str(part.get('Content-Disposition'))
+    charset = part.get_content_charset() or 'utf-8'
+
+    # if content_type in ('text/plain', 'text/html') and 'attachment' not in (disposition or ''):
+    if content_type == 'text/plain' and 'attachment' not in (disposition or ''):
+        payload = part.get_payload(decode=True)
+        return payload.decode(charset, errors='replace')
+
+    if content_type == 'text/plain' or content_type == 'text/html':
+        payload = part.get_payload(decode=True)
+        return payload.decode(charset, errors='replace')
 
     return ''
 
@@ -148,7 +159,7 @@ def extract_tx_data(body: str) -> tuple[int, TxData] | tuple[None, None]:
             )
         )
     except (AttributeError, ValueError) as e:  # no match or failed conversion
-        print('Tx data extraction is failed: ', e)
+        logger.exception('Tx data extraction is failed.')
         return None, None
 
     # TODO: check tx_data fields
@@ -207,10 +218,7 @@ async def store_member_message(uid: int, msg: MemberMessage, proof_struct: Proof
         tx = await crud.get_tx_by_msg_hash(msg.initial_data.msg_hash)
 
     await crud.create_approval(tx, msg.member, proof_struct, uid)
-    print(f'UID={uid}')
-    print(f'FROM={msg.member.email}')
-    print(f'TX={tx.id}')
-    print(f'ZKPROOF={proof_struct}')
+    logger.info('New approval is stored')
     return tx
 
 

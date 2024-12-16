@@ -1,5 +1,3 @@
-import logging
-
 import blockchain
 import crud
 from models import ProofStruct
@@ -7,9 +5,12 @@ from models import Transaction
 from models import TransactionOperation
 from models import TransactionStatus
 from models import TxData
+from logger import logger
 
 
 async def check_threshold(tx: Transaction) -> tuple[bool, list[ProofStruct]]:
+    logger.info('Check proofs threshold')
+
     if not await crud.check_threshold_is_confirmed(tx.id, tx.samm_id):
         return False, []
 
@@ -24,13 +25,15 @@ async def check_threshold(tx: Transaction) -> tuple[bool, list[ProofStruct]]:
         ))
 
     if not proof_structs:
-        print('Proofs list is empty')
+        logger.error('Proofs list is empty')
         raise
 
+    logger.info(f'Proofs number: {len(proof_structs)}')
     return True, proof_structs
 
 
 async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct]) -> TransactionStatus:
+    logger.info(f'Execute transaction id={tx.id}')
     try:
         tx_data = TxData(
             to=tx.to,
@@ -42,17 +45,17 @@ async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct])
         )
         success, tx_receipt = await blockchain.execute_transaction(tx.samm.samm_address, tx_data, proof_structs)
     except:
-        logging.exception('Unknow exception during blockchain communication.')
+        logger.exception('Unknow exception during blockchain communication.')
     else:
         match (success, tx_receipt):
             case False, None:
-                # contract revert error
+                logger.error('Contract reverts error')
                 return TransactionStatus.failed
             case False, _:
-                # contract return False
+                logger.error('Contract returns "false"')
                 return TransactionStatus.failed
             case True, None:
-                # transaction was sent, but timeout was reached
+                logger.warning('Transaction was sent, but timeout was reached')
                 return TransactionStatus.sent
             case True, _:
                 return TransactionStatus.success
@@ -61,5 +64,6 @@ async def execute_transaction(tx: Transaction, proof_structs: list[ProofStruct])
 
 
 async def change_transaction_status(tx: Transaction, status: TransactionStatus):
+    logger.info(f'New status: {status}')
     await crud.change_transaction_status(tx.id, status)
 

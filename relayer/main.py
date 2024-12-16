@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 import asyncio
-import logging
 import time
 
 import conf
 import db
 import crud
 import imap_client
+from logger import logger
 
 
 RECONNECT_DELAY = 30
@@ -23,5 +23,5 @@ if __name__ == '__main__':
         try:
             loop.run_until_complete(imap_client.idle_loop())
         except:
-            logging.exception(f'idle_loop is failed. reconnect after {RECONNECT_DELAY} sec')
+            logger.exception(f'idle_loop is failed. reconnect after {RECONNECT_DELAY} sec')
             time.sleep(RECONNECT_DELAY)

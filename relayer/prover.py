@@ -1,10 +1,10 @@
 import asyncio
 import json
-import logging
 import os
 
 from models import ApprovalData
 from models import ProofStruct
+from logger import logger
 
 current_file_path = os.path.dirname(__file__)
 GENERATE_WITNESS_FILENAME = os.path.join(current_file_path, 'scripts/generateWitness.js')
@@ -14,13 +14,15 @@ WITNESS_GZ_FILENAME = os.path.join(current_file_path, 'target/witness.gz')
 
 
 async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
+    logger.info('Proof generation started')
+
     match approval_data.key_size:
         case 2048:
             is_2048_sig = True
         case 1024:
             is_2048_sig = False
         case _:
-            print('Unknown key_size:', approval_data.key_size)
+            logger.error(f'Unknown key_size: {approval_data.key_size}')
             return None
 
     try:
@@ -28,7 +30,7 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
         await _generate_witness_gz()
         commit, pubkey_hash, proof = await _generate_proof()
     except:
-        logging.exception('Proof generation is failed')
+        logger.exception('Proof generation is failed')
 
         # TODO: to uncomment
         # return None
@@ -37,10 +39,7 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
     if not commit or not pubkey_hash or not proof:
         commit, pubkey_hash, proof = '0', '0', '0'
 
-    print(f'---- GENERTE ZK PROOF: {proof}')
-    print(f'---- GENERTE ZK COMMIT: {commit}')
-    print(f'---- GENERTE ZK COMMIT: {pubkey_hash}')
-
+    logger.info(f'Proof is generated: commit={commit}')
     return ProofStruct(
         proof=proof.encode(),
         commit=int(commit, 16),
@@ -78,25 +77,25 @@ def _write_prover_json(approval_data: ApprovalData):
 
 async def _generate_witness_gz():
     # node scripts/generateWitness.js
-    print('Generating witness... ⌛')
+    logger.info('Generating witness... ⌛')
     process = await asyncio.create_subprocess_exec(
         'node',
         GENERATE_WITNESS_FILENAME,
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    print(f'subprocess: {process}')
+    logger.info(f'subprocess: {process}')
     (stdout, stderr) = await process.communicate()
     if stderr:
-        print('Witness generation is failed ⭕: ', stderr)
+        logger.error(f'Witness generation is failed ⭕: {stderr}')
         # TODO: error
         raise
 
-    print('Witness is generated ✅: ', stdout)
+    logger.info(f'Witness is generated ✅: {stdout}')
 
 
 async def _generate_proof() -> tuple[str, str, str]:
-    print('Generating proof... ⌛')
+    logger.info('Generating proof... ⌛')
     # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o -
     process = await asyncio.create_subprocess_exec(
         'bb',
@@ -110,14 +109,14 @@ async def _generate_proof() -> tuple[str, str, str]:
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
-    print(f'subprocess: {process}')
+    logger.info(f'subprocess: {process}')
     (stdout, stderr) = await process.communicate()
     if stderr:
-        print('Proof generation is failed ⭕: ', stderr)
+        logger.error(f'Proof generation is failed ⭕: {stderr}')
         # TODO: error
         raise
 
-    print('Proof is generated ✅')
+    logger.info('Proof is generated ✅')
 
     # split to public inputs, outputs (commit, pubkeyHash) and proof itself
     # first output

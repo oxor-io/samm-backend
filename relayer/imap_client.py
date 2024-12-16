@@ -1,7 +1,6 @@
 import aiohttp
 import asyncio
 import re
-import logging
 from itertools import batched
 
 from aioimaplib import aioimaplib
@@ -15,6 +14,7 @@ from prover import generate_zk_proof
 from tx_execution import check_threshold
 from tx_execution import execute_transaction
 from tx_execution import change_transaction_status
+from logger import logger
 
 # https://github.com/bamthomas/aioimaplib
 
@@ -52,7 +52,7 @@ async def idle_loop():
                 cursor = CURSORS[0] if (idx + 1) >= len(CURSORS) else CURSORS[idx + 1]
                 resp = await imap_client.select(cursor.folder)
                 switch_folder = False
-                print(f'Select mail folder: {cursor.folder}')
+                logger.info(f'Select mail folder: {cursor.folder}')
 
             uid_max = await fetch_imap_messages(imap_client, cursor.uid_start, cursor.uid_end)
             match uid_max:
@@ -67,14 +67,14 @@ async def idle_loop():
                     cursor.uid_end = uid_max + CHUNK_SIZE
 
         except asyncio.TimeoutError:
-            logging.exception(f'Timeout exception')
+            logger.exception(f'Timeout exception')
             raise asyncio.TimeoutError
 
 
 async def connect() -> aioimaplib.IMAP4_SSL:
     imap_client = aioimaplib.IMAP4_SSL(host=conf.IMAP_HOST, port=conf.IMAP_PORT)
     resp = await imap_client.wait_hello_from_server()
-    print(f'Hello server: {resp}')
+    logger.info(f'Hello server: {resp}')
 
     await authenticate_oauth_token(imap_client)
 
@@ -84,7 +84,7 @@ async def connect() -> aioimaplib.IMAP4_SSL:
 async def authenticate_oauth_token(imap_client):
     token = await fetch_access_token(conf.GMAIL_REFRESH_TOKEN, conf.GMAIL_CLIENT_ID, conf.GMAIL_CLIENT_SECRET)
     resp = await imap_client.xoauth2(conf.RELAYER_EMAIL, token)
-    print(f'Auth: {resp}')
+    logger.info(f'Auth: {resp}')
 
 
 async def fetch_access_token(refresh_token: str, client_id: str, client_secret: str) -> str:
@@ -97,27 +97,27 @@ async def fetch_access_token(refresh_token: str, client_id: str, client_secret: 
     }
     async with aiohttp.ClientSession() as session:
         async with session.post(url=GOOGLE_API_URL, data=data) as resp:
-            print(f'refresh_access_token resp.status: {resp.status}')
+            logger.info(f'Refresh access_token, resp.status: {resp.status}')
             data = await resp.json()
             return data['access_token']
 
 
 async def fetch_imap_messages(imap_client, uid_start: int, uid_end: int) -> int:
     resp = await imap_client.uid(FETCH_COMMAND, f'{uid_start}:{uid_end}', FETCH_CRITERIA_PARTS)
-    print(f'Fetch mails UIDs={uid_start}:{uid_end} (lines={len(resp.lines)} / 3)')
+    logger.info(f'Fetch mails UIDs={uid_start}:{uid_end} (lines={len(resp.lines)} / 3)')
 
     if resp.result != 'OK':
-        print(f'Fetch command return an error: {resp}')
+        logger.error(f'Fetch command return an error: {resp}')
         raise
 
     uid_max = await process_imap_messages(resp.lines)
-    print(f'Fetched uid_max={uid_max}')
+    logger.info(f'Fetched uid_max={uid_max}')
 
     idle = await imap_client.idle_start(timeout=conf.IMAP_IDLE_TIMEOUT)
-    print(f'IDLE: {idle.get_name()}')
+    logger.info(f'IDLE: {idle.get_name()}')
 
     resp = await imap_client.wait_server_push()
-    print(f'QUEUE: {resp}')
+    logger.info(f'Queue: {resp}')
 
     imap_client.idle_done()
 
@@ -131,7 +131,7 @@ async def process_imap_messages(lines: list) -> int:
 
     lines = lines[:-1]
     if rem := len(lines) % 3:
-        print(f'Excess lines detected. All lines: {lines}')
+        logger.warning(f'Excess lines detected. All lines: {lines}')
         lines = lines[:len(lines) - rem]
 
     for start, raw_msg, end in batched(lines, 3):
@@ -150,7 +150,7 @@ async def process_imap_messages(lines: list) -> int:
         #     uid_max = uid
         # continue
 
-        print(f'Parse raw message: UID={uid}')
+        logger.info(f'====== Parse raw message: UID={uid}')
         member_message = await parse_member_message(uid, raw_msg)
 
         # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
