@@ -24,15 +24,16 @@ router = APIRouter()
 )
 async def get_txns(
         samm_id: int,
-        status: TxnStatus,
+        status: TxnStatus | None = None,
         session: AsyncSession = Depends(get_session),
         offset: int = 0,
         limit: int = Query(default=100, le=100),
 ):
     # TODO: check samm_id in member.samms
-    statement = select(Txn).where(
-        (Txn.status == status) & (Txn.samm_id == samm_id)
-    ).offset(offset).limit(limit)
+    condition = (Txn.samm_id == samm_id)
+    if status:
+        condition &= (Txn.status == status)
+    statement = select(Txn).where(condition).offset(offset).limit(limit)
     txns = (await session.scalars(statement)).all()
     return txns
 
