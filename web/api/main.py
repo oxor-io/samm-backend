@@ -1,6 +1,11 @@
 from fastapi import FastAPI
 
+# Load confing and all modules
 import api.conf
+from api.samm import models
+from api.member import models
+from api.token import models
+from api.txn import models
 from api.db import init_db
 from api.samm.router import router as samm_router
 from api.member.router import router as member_router

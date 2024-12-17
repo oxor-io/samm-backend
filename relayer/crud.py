@@ -148,6 +148,7 @@ async def get_approvals(txn_id: int):
 async def fill_db_initial_txn(first_user_email: str) -> Samm:
     async with AsyncSession(engine) as session:
         samm = Samm(
+            name='FirstSAMM',
             samm_address='qwe123',
             safe_address='asd123',
             threshold=3,
@@ -155,6 +156,7 @@ async def fill_db_initial_txn(first_user_email: str) -> Samm:
             nonce=123,
             expiration_period=DEFAULT_EXPIRATION_PERIOD,
             chain_id=1,
+            is_active=True,
         )
 
         m1 = Member(
@@ -205,6 +207,7 @@ async def fill_db_initial_txn(first_user_email: str) -> Samm:
 async def fill_db_approval_txn(first_user_email: str):
     async with AsyncSession(engine) as session:
         samm = Samm(
+            name='FirstSAMM',
             samm_address='qwe123',
             safe_address='asd123',
             threshold=3,
@@ -212,6 +215,7 @@ async def fill_db_approval_txn(first_user_email: str):
             nonce=123,
             expiration_period=DEFAULT_EXPIRATION_PERIOD,
             chain_id=1,
+            is_active=True,
         )
 
         m1 = Member(

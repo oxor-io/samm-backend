@@ -6,6 +6,7 @@ from web3.middleware import SignAndSendRawMiddlewareBuilder
 from web3.exceptions import ContractCustomError
 from web3.types import TxReceipt
 
+from logger import logger
 from models import ProofStruct
 from models import TxnData
 from models import TxnOperation
@@ -53,10 +54,11 @@ async def execute_txn(
     )
 
     # TODO: add try-cache network exceptions
+    logger.info(f'Transaction params: {params}')
     try:
         txn_hash = await contract_instance.functions.executeTransactionReturnData(*params).transact({'from': acc.address})
-    except ContractCustomError as ex:
-        print('ContractCustomError: ', ex)
+    except ContractCustomError:
+        logger.exception('ContractCustomError: ')
         return False, None
 
     # Wait for the transaction to be mined, and get the transaction receipt

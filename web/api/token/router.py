@@ -50,6 +50,7 @@ async def login_for_member_access_token(
 async def login_for_owner_access_token(
         owner_address: str,
         samm_address: str,
+        name: str | None,
         chain_id: int,
         timestamp: int,
         signature: str,
@@ -77,7 +78,7 @@ async def login_for_owner_access_token(
         owner = create_owner(owner_address)
         owner = await save_owner(owner)
     if not samm:
-        samm = await create_samm(samm_address, chain_id)
+        samm = await create_samm(samm_address, chain_id, name)
         await save_samm(owner, samm)
 
     scopes = [TokenScope.member.value, TokenScope.samm.value] if owner.is_active else []

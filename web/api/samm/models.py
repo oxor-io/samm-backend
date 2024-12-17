@@ -15,12 +15,14 @@ class SammMemberLink(SQLModel, table=True):
 
 
 class SammBase(SQLModel):
+    name: str | None
     samm_address: str
     safe_address: str
     threshold: int
     expiration_period: int
     root: str
     chain_id: int
+    is_active: bool
 
 
 class Samm(SammBase, table=True):

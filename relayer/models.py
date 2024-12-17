@@ -54,6 +54,7 @@ class Owner(SQLModel, table=True):
 
 class Samm(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    name: str | None
     nonce: int | None = Field(default=0)
     samm_address: str
     safe_address: str
@@ -61,6 +62,7 @@ class Samm(SQLModel, table=True):
     expiration_period: int
     root: str
     chain_id: int
+    is_active: bool
 
     owners: list[Owner] = Relationship(back_populates='samms', link_model=SammOwnerLink)
     members: list['Member'] = Relationship(back_populates='samms', link_model=SammMemberLink)

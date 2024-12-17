@@ -72,3 +72,25 @@ async def add_samm(
     await session.commit()
     await session.refresh(samm)
     return samm
+
+
+@router.delete(
+    '/samms/{samm_id}/',
+    response_model=SammPublic,
+    dependencies=[Security(get_token_subject, scopes=[TokenScope.samm.value])],
+)
+async def inactivate_samm(
+        samm_id: int,
+        session: AsyncSession = Depends(get_session),
+):
+    statement = select(Samm).where(Samm.id == samm_id)
+    samm = (await session.scalars(statement)).one()
+
+    samm.sqlmodel_update({
+        'is_active': False,
+    })
+    session.add(samm)
+
+    await session.commit()
+    await session.refresh(samm)
+    return samm
