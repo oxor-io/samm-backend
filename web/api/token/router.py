@@ -50,10 +50,10 @@ async def login_for_member_access_token(
 async def login_for_owner_access_token(
         owner_address: str,
         samm_address: str,
-        name: str | None,
         chain_id: int,
         timestamp: int,
         signature: str,
+        name: str | None = None,
 ):
     if not check_signature(signature, chain_id, owner_address, samm_address, timestamp):
         raise HTTPException(
