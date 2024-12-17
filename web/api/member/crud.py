@@ -12,7 +12,7 @@ async def get_member_by_email(member_email: str) -> Member:
         return results.first()
 
 
-async def save_members(members: list[Member]):
+async def save_members(members: list[Member]) -> list[Member]:
     async with AsyncSession(engine) as session:
         for member in members:
             session.add(member)
@@ -20,3 +20,5 @@ async def save_members(members: list[Member]):
 
         for member in members:
             await session.refresh(member)
+            print(f'NEW MEMBER SAVED: {member}, {member.hashed_password}')
+        return members

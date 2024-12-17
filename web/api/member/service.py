@@ -13,13 +13,14 @@ def create_member(member_email: str) -> Member:
     # TODO: send raw_password to the member_email
     secret = randint(1, 2048)
     raw_password = member_email + '_pass'
-
+    hashed_password = get_password_hash(raw_password)
     member_payload = MemberCreateSecret(
         email=member_email,
         is_active=True,
         secret=secret,
-        hashed_password=get_password_hash(raw_password),
+        hashed_password=hashed_password,
     )
+    print(f'CREATE NEW MEMBER: {member_email}, {raw_password}, {hashed_password}')
     return Member.model_validate(member_payload)
 
 
@@ -34,7 +35,7 @@ async def detect_and_save_new_members(member_emails: list[str]) -> tuple[list[Me
             new_members.append(member)
         members.append(member)
 
-    await crud.save_members(new_members)
+    new_members = await crud.save_members(new_members)
     return members, new_members
 
 
