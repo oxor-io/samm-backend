@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from api.db import get_session
 from api.token.dependencies import get_token_subject
 from api.token.models import TokenScope
+from api.token.models import TokenSubjectRole
+from api.token.models import User
 from api.txn.models import Approval
 from api.txn.models import ApprovalPublic
 from api.txn.models import Txn
@@ -53,3 +55,24 @@ async def get_approvals(
     statement = select(Approval).where(Approval.txn_id == txn_id).offset(offset).limit(limit)
     approvals = (await session.scalars(statement)).all()
     return approvals
+
+
+@router.get(
+    '/transactions/{txn_id}/approvals/me/',
+    response_model=ApprovalPublic | None,
+)
+async def get_approvals_me(
+        txn_id: int,
+        user: User = Security(get_token_subject, scopes=[TokenScope.member.value]),
+        session: AsyncSession = Depends(get_session),
+):
+    # TODO: check txn_id in member.txns
+
+    if user.role != TokenSubjectRole.member:
+        return None
+
+    statement = select(Approval).where(
+        (Approval.txn_id == txn_id) & (Approval.member_id == user.subject.id)
+    )
+    approvals = await session.scalars(statement)
+    return approvals.first()
