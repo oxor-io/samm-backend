@@ -66,6 +66,7 @@ def _write_prover_json(approval_data: ApprovalData):
         "to_seq": {"index": approval_data.to_seq.index, "length": approval_data.to_seq.length},
         "relayer_seq": {"index": approval_data.relayer_seq.index, "length": approval_data.relayer_seq.length}
     }
+    logger.info(f'Prover data: {prover_data}')
 
     # Serializing json
     json_object = json.dumps(prover_data, indent=4)

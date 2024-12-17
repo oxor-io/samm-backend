@@ -41,20 +41,28 @@ async def execute_txn(
     address = convert_address_from_str(samm_address)
     contract_instance = w3.eth.contract(address=address, abi=SAMM_ABI)
 
+    logger.info(f'Transaction txn_data: {txn_data}')
+    logger.info(f'Transaction proof_structs: {proof_structs}')
+
     for proof_struct in proof_structs:
         proof_struct.proof = bytes.fromhex(proof_struct.proof.decode())
 
+    # address to,
+    # uint256 value,
+    # bytes memory data,
+    # ISafe.Operation operation,
+    # Proof[] calldata proofs,
+    # uint256 deadline
     params = (
         convert_address_from_str(txn_data.to),
         txn_data.value,
-        bytes.fromhex(txn_data.data.decode()[2:]),
+        bytes.fromhex(without_0x(txn_data.data.decode())),
         list(TxnOperation).index(txn_data.operation),
         [proof.__dict__ for proof in proof_structs],
         txn_data.deadline,
     )
 
     # TODO: add try-cache network exceptions
-    logger.info(f'Transaction params: {params}')
     try:
         txn_hash = await contract_instance.functions.executeTransactionReturnData(*params).transact({'from': acc.address})
     except ContractCustomError:
