@@ -165,6 +165,14 @@ def extract_txn_data(body: str) -> tuple[int, TxnData] | tuple[None, None]:
     # TODO: check txn_data fields
 
 
+def calculate_samm_root(members: list[Member]):
+    # TODO: less predictable order
+    members.sort(key=lambda x: x.id)
+    emails_and_secrets = [(member.email, member.secret) for member in members]
+    tree = generate_merkle_tree(emails_and_secrets)
+    return str(tree.root), tree
+
+
 async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[Member], member: Member, relayer_email: str):
     domain, header, header_length, key_size, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = \
         await extract_dkim_data(raw_msg)
@@ -172,8 +180,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     padded_member, padded_member_length = get_padded_email(member.email)
     padded_relayer, padded_relayer_length = get_padded_email(relayer_email)
 
-    emails_and_secrets = [(member.email, member.secret) for member in members]
-    tree = generate_merkle_tree(emails_and_secrets)
+    root, tree = calculate_samm_root(members)
     path_elements, path_indices = tree.gen_proof(leaf_pos=members.index(member))
 
     # calculate sequences
@@ -197,7 +204,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
         redc_params_limbs=redc_params_limbs,
         signature=signature_limbs,
 
-        root=str(tree.root),
+        root=root,
         path_elements=[str(i) for i in path_elements],
         path_indices=path_indices,
 

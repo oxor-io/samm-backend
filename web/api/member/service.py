@@ -50,6 +50,8 @@ async def authenticate_member(member_email: str, member_raw_password: str) -> Me
 
 def calculate_samm_root(members: list[Member]) -> str:
     # TODO: check that the new(removed) member in the list
+    # TODO: less predictable order
+    members.sort(key=lambda x: x.id)
     emails_and_secrets = [(member.email, member.secret) for member in members]
     tree = generate_merkle_tree(emails_and_secrets)
     return str(tree.root)

@@ -19,8 +19,6 @@ async def update_members_and_root(samm_id: int, root: str, members):
         statement = select(Samm).where(Samm.id == samm_id).options(selectinload(Samm.members))
         samm = (await session.scalars(statement)).one()
 
-        # TODO: reorder samm.members by member_emails list
-
         exclude_members = [member for member in samm.members if member not in members]
         for member in exclude_members:
             samm.members.remove(member)
