@@ -10,3 +10,4 @@ passlib[bcrypt]==1.7.4
 python-multipart==0.0.17
 circomlibpy==1.0.0
 web3==7.6.0
+aiosmtplib==3.0.2
