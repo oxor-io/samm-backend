@@ -231,6 +231,40 @@ samm_id=3D3;to=3D0xD4aF3d17efd18DF0D6a84b8111b9Cd71A039E4a4;value=3D1000000=
 48;
 """
 
+html_eml = b"""Received: from postback26d.mail.yandex.net (postback26d.mail.yandex.net [2a02:6b8:c41:1300:1:45:d181:da26])
+	by mail-notsolitesrv-production-main-548.klg.yp-c.yandex.net (notsolitesrv/Yandex) with LMTPS id Gibp6vREHKqW-WE0G9Za6
+	for <oxorio@yandex.ru>; Wed, 18 Dec 2024 22:24:39 +0300
+Received: from mail-nwsmtp-mxback-production-main-87.iva.yp-c.yandex.net (mail-nwsmtp-mxback-production-main-87.iva.yp-c.yandex.net [IPv6:2a02:6b8:c0c:2801:0:640:b0b5:0])
+	by postback26d.mail.yandex.net (Yandex) with ESMTPS id 3F25860906
+	for <oxorio@yandex.ru>; Wed, 18 Dec 2024 22:24:39 +0300 (MSK)
+Received: from mail.yandex.ru (2a02:6b8:c0c:16a7:0:640:8515:0 [2a02:6b8:c0c:16a7:0:640:8515:0])
+	by mail-nwsmtp-mxback-production-main-87.iva.yp-c.yandex.net (mxback/Yandex) with HTTPS id XOX5Xj6Ox4Y0-ijGuIvEi;
+	Wed, 18 Dec 2024 22:24:39 +0300
+X-Yandex-Fwd: 1
+DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=yandex.ru; s=mail;
+	t=1734549879; bh=rDkEA62kZ5rHmnwkoCg9d2smSOo4LLL4pzG6nnDxXuk=;
+	h=Message-Id:Date:Subject:To:From;
+	b=X87YjUuR7YqLDvLkxvBM7QFoc8MwdKxXq6vR8B17u5ChXTLXA5zlP7Ohc26S+l5VN
+	 nrbIpV45vBRTBey5pc5e7rd+qhC8v1MhvosbqnC8jR9r8YK1iyA9qEFjmokDFrSj4w
+	 Ad+qEDh0uD00a9YefCClaBx0QoHI7fd43NRyj1ZE=
+Authentication-Results: mail-nwsmtp-mxback-production-main-87.iva.yp-c.yandex.net; dkim=pass header.i=@yandex.ru
+X-Yandex-Spam: 1
+Received: by qnb4xdsvdwd5l2mw.iva.yp-c.yandex.net with HTTP;
+	Wed, 18 Dec 2024 22:24:38 +0300
+From: Artem B <oxorio@yandex.ru>
+To: "samm@oxor.io" <samm@oxor.io>
+Subject: gaVfYAY9pLtCkNetwVx+BDxKP3kWv9mKm5Nm7L+hKrY=
+MIME-Version: 1.0
+X-Mailer: Yamail [ http://yandex.ru ] 5.0
+Date: Wed, 18 Dec 2024 22:24:38 +0300
+Message-Id: <1778131734549859@mail.yandex.ru>
+Content-Transfer-Encoding: 7bit
+Content-Type: text/html
+Return-Path: oxorio@yandex.ru
+
+<div><div>samm_id=11;to=0xD4aF3d17efd18DF0D6a84b8111b9Cd71A039E4a4;value=0;data=0x28b5e32b;operation=CALL;nonce=0;deadline=1735154640;</div></div>
+"""
+
 
 def _create_test_body(samm_id: int) -> str:
     txn_to = '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
@@ -279,6 +313,20 @@ def test_parse_body_plain_email():
     assert txn_data.operation == TxnOperation.call
     assert txn_data.nonce == 23
     assert txn_data.deadline == 1734930048
+
+
+def test_parse_body_html_email():
+    msg = BytesParser(policy=policy.default).parsebytes(html_eml)
+    body = parse_body(msg)
+    samm_id, txn_data = extract_txn_data(body)
+
+    assert samm_id == 11
+    assert txn_data.to == '0xD4aF3d17efd18DF0D6a84b8111b9Cd71A039E4a4'
+    assert txn_data.value == 0
+    assert txn_data.data == b'0x28b5e32b'
+    assert txn_data.operation == TxnOperation.call
+    assert txn_data.nonce == 0
+    assert txn_data.deadline == 1735154640
 
 
 async def test_dkmi_extraction_1024():
@@ -723,6 +771,7 @@ if __name__ == '__main__':
 
     test_parse_body()
     test_parse_body_plain_email()
+    test_parse_body_html_email()
     test_tree_generation()
     # TODO: pass DKIM verification in tests, because DKIM signature has expiration period
     # loop.run_until_complete(test_parse_member_initial_message())

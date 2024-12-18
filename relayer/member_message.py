@@ -125,23 +125,27 @@ async def _process_approval_message(txn_id: int, member_id: int) -> list[Member]
 
 
 def extract_txn_data(body: str) -> tuple[int, TxnData] | tuple[None, None]:
-    m = re.match(r'samm_id=(?P<samm_id>.*);'
-                 r'to=(?P<to>.*);'
-                 r'value=(?P<value>.*);'
-                 r'data=(?P<data>.*);'
-                 r'operation=(?P<operation>.*);'
-                 r'nonce=(?P<nonce>.*);'
-                 r'deadline=(?P<deadline>.*);', body)
+    pattern = re.compile(
+        r'samm_id=(?P<samm_id>[^;]+);'
+        r'to=(?P<to>[^;]+);'
+        r'value=(?P<value>[^;]+);'
+        r'data=(?P<data>[^;]+);'
+        r'operation=(?P<operation>[^;]+);'
+        r'nonce=(?P<nonce>[^;]+);'
+        r'deadline=(?P<deadline>[^;]+);',
+    )
+    m = pattern.search(body)
     try:
+        data = m.groupdict()
         return (
-            int(m.group('samm_id')),
+            int(data['samm_id']),
             TxnData(
-                to=str(m.group('to')),
-                value=int(m.group('value')),
-                data=bytes(m.group('data').encode()),
-                operation=TxnOperation(m.group('operation')),
-                nonce=int(m.group('nonce')),
-                deadline=int(m.group('deadline')),
+                to=data['to'],
+                value=int(data['value']),
+                data=bytes(data['data'].encode()),
+                operation=TxnOperation(data['operation']),
+                nonce=int(data['nonce']),
+                deadline=int(data['deadline']),
             )
         )
     except (AttributeError, ValueError):  # no match or failed conversion
