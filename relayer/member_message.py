@@ -245,7 +245,8 @@ async def send_response_by_member_message(msg: MemberMessage, txn: Txn, is_confi
         members = await crud.get_members_by_txn(txn.id)
         await send_response_confirmation(txn.msg_hash, members)
     elif msg.initial_data:
-        members = [m for m in msg.initial_data.members if m != msg.member]
+        members = await crud.get_members_by_txn(txn.id)
+        members = [m for m in members if m != msg.member]
         await send_response_initial(txn.msg_hash, members)
         await send_response_me(txn.msg_hash, msg.member)
     else:
