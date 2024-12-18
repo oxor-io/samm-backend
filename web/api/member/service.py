@@ -10,7 +10,7 @@ from api.member.utils import get_password_hash
 from api.member.utils import generate_merkle_tree
 
 
-def create_member(member_email: str) -> Member:
+def create_member(member_email: str) -> tuple[Member, str]:
     # TODO: merge secret and raw_password
     secret = randint(1, 2048)
     raw_password = secrets.token_urlsafe(8)
@@ -22,26 +22,30 @@ def create_member(member_email: str) -> Member:
         hashed_password=hashed_password,
     )
     print(f'CREATE NEW MEMBER: {member_email}, {raw_password}, {hashed_password}')
-    await send_email(
-        member_email,
-        subject='Member password in SAMM',
-        msg_text=f'You have been added to participate in SAMM. Your password: {raw_password}',
-    )
-    return Member.model_validate(member_payload)
+    return Member.model_validate(member_payload), raw_password
 
 
 async def detect_and_save_new_members(member_emails: list[str]) -> tuple[list[Member], list[Member]]:
     members: list[Member] = []
     new_members: list[Member] = []
+    member_email_and_password: list[tuple[str, str]] = []
 
     for member_email in member_emails:
         member = await crud.get_member_by_email(member_email)
         if not member:
-            member = create_member(member_email)
+            member, raw_password = create_member(member_email)
+            member_email_and_password.append((member.email, raw_password))
             new_members.append(member)
         members.append(member)
 
     new_members = await crud.save_members(new_members)
+
+    for member_email, raw_password in member_email_and_password:
+        await send_email(
+            member_email,
+            subject='Member password in SAMM',
+            msg_text=f'You have been added to participate in SAMM. Your password: {raw_password}',
+        )
     return members, new_members
 
 
