@@ -30,7 +30,7 @@ async def get_samms(
 ):
     query = select(Samm)
     if safe_address:
-        query = query.where(Samm.safe_address == safe_address)
+        query = query.where(Samm.safe_address == safe_address.lower())
     statement = query.offset(offset).limit(limit)
     samms = (await session.scalars(statement)).all()
     return samms

@@ -27,6 +27,7 @@ class SammBase(SQLModel):
 
 class Samm(SammBase, table=True):
     id: int | None = Field(default=None, primary_key=True)
+    # TODO: remove deprecated field
     nonce: int | None = Field(default=0)
 
     owners: list[Owner] = Relationship(back_populates='samms', link_model=SammOwnerLink)

@@ -9,7 +9,7 @@ from api.samm.models import Samm
 
 async def get_samm_by_address(samm_address: str) -> Samm:
     async with AsyncSession(engine) as session:
-        statement = select(Samm).where(Samm.samm_address == samm_address).options(selectinload(Samm.owners))
+        statement = select(Samm).where(Samm.samm_address == samm_address.lower()).options(selectinload(Samm.owners))
         results = await session.scalars(statement)
         return results.first()
 
@@ -37,21 +37,29 @@ async def update_members_and_root(samm_id: int, root: str, members):
         await session.refresh(samm)
 
 
-async def save_samm(owner: Owner, samm: Samm) -> Samm:
+async def update_owners(samm_id: int, owners: list[Owner]):
+    async with AsyncSession(engine) as session:
+        statement = select(Samm).where(Samm.id == samm_id).options(selectinload(Samm.owners))
+        samm = (await session.scalars(statement)).one()
+
+        exclude_owners = [owner for owner in samm.owners if owner not in owners]
+        for owner in exclude_owners:
+            samm.owners.remove(owner)
+
+        include_owners = [owner for owner in owners if owner not in samm.owners]
+        for owner in include_owners:
+            samm.owners.append(owner)
+
+        session.add(samm)
+
+        await session.commit()
+        await session.refresh(samm)
+        return samm
+
+
+async def save_samm(samm: Samm) -> Samm:
     async with AsyncSession(engine) as session:
         session.add(samm)
         await session.commit()
-        await session.refresh(samm)
-
-        # TODO: optimaze samm reloading
-        statement = select(Samm).where(Samm.id == samm.id).options(selectinload(Samm.owners))
-        samm = (await session.scalars(statement)).one()
-
-        # add owner-samm relationship
-        samm.owners.append(owner)
-        session.add(samm)
-
-        await session.commit()
-        await session.refresh(owner)
         await session.refresh(samm)
         return samm

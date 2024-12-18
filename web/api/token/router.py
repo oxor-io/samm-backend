@@ -4,13 +4,12 @@ from fastapi import HTTPException
 from fastapi import status
 from fastapi.security import OAuth2PasswordRequestForm
 
-from api.owner.crud import get_owner_by_address
-from api.owner.crud import save_owner
-from api.owner.service import create_owner
+from api import blockchain
 from api.owner.service import check_signature
-from api.owner.service import check_samm_owner
+from api.owner.service import detect_and_save_new_owners
 from api.samm.crud import get_samm_by_address
 from api.samm.crud import save_samm
+from api.samm.crud import update_owners
 from api.samm.service import create_samm
 from api.member.service import authenticate_member
 from api.token.models import Token
@@ -55,6 +54,9 @@ async def login_for_owner_access_token(
         signature: str,
         name: str | None = None,
 ):
+    owner_address = owner_address.lower()
+    samm_address = samm_address.lower()
+
     if not check_signature(signature, chain_id, owner_address, samm_address, timestamp):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -62,26 +64,55 @@ async def login_for_owner_access_token(
             headers={'WWW-Authenticate': 'Bearer'},
         )
 
+    # fetch samm's blockchain info
+    samm = await get_samm_by_address(samm_address)
+    if samm:
+        safe_address, root, threshold = samm.safe_address, samm.root, samm.threshold
+    else:
+        safe_address, root, threshold = await blockchain.fetch_samm_data(samm_address)
+
+    if not safe_address:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Incorrect SAMM address',
+            headers={'WWW-Authenticate': 'Bearer'},
+        )
+
     # check ownership in blockchain
-    if not await check_samm_owner(owner_address, samm_address):
+    owner_addresses = await blockchain.get_safe_owners(safe_address)
+    if not owner_addresses:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail='Incorrect Safe address',
+            headers={'WWW-Authenticate': 'Bearer'},
+        )
+
+    if owner_address not in owner_addresses:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail='Incorrect owner of the SAMM',
             headers={'WWW-Authenticate': 'Bearer'},
         )
 
-    owner = await get_owner_by_address(owner_address)
-    samm = await get_samm_by_address(samm_address)
-
-    # new owner and samm
-    if not owner:
-        owner = create_owner(owner_address)
-        owner = await save_owner(owner)
+    # create new samm
     if not samm:
-        samm = await create_samm(samm_address, chain_id, name)
-        await save_samm(owner, samm)
+        samm = create_samm(name, samm_address, safe_address, root, threshold, chain_id)
+        samm = await save_samm(samm)
 
-    scopes = [TokenScope.member.value, TokenScope.samm.value] if owner.is_active else []
+    # create new owners
+    owners, new_owners = await detect_and_save_new_owners(owner_addresses)
+
+    # update relationships samm<->owners
+    await update_owners(samm.id, owners)
+
+    # find current owner from owners
+    current_owner = None
+    for owner in owners:
+        if owner.owner_address == owner_address and owner.is_active:
+            current_owner = owner
+            break
+
+    scopes = [TokenScope.member.value, TokenScope.samm.value] if current_owner.is_active else []
 
     # create access_token
     access_token = encode_jwt_access_token(
