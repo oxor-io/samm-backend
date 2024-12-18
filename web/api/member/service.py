@@ -1,5 +1,7 @@
+import secrets
 from random import randint
 
+from api.sender import send_email
 from api.member import crud
 from api.member.models import Member
 from api.member.models import MemberCreateSecret
@@ -9,10 +11,9 @@ from api.member.utils import generate_merkle_tree
 
 
 def create_member(member_email: str) -> Member:
-    # TODO: merge secret and raw_password and(or) fix raw_password generation algorithm
-    # TODO: send raw_password to the member_email
+    # TODO: merge secret and raw_password
     secret = randint(1, 2048)
-    raw_password = member_email + '_pass'
+    raw_password = secrets.token_urlsafe(8)
     hashed_password = get_password_hash(raw_password)
     member_payload = MemberCreateSecret(
         email=member_email,
@@ -21,6 +22,11 @@ def create_member(member_email: str) -> Member:
         hashed_password=hashed_password,
     )
     print(f'CREATE NEW MEMBER: {member_email}, {raw_password}, {hashed_password}')
+    await send_email(
+        member_email,
+        subject='Member password in SAMM',
+        msg_text=f'You have been added to participate in SAMM. Your password: {raw_password}',
+    )
     return Member.model_validate(member_payload)
 
 
