@@ -8,23 +8,14 @@ from aioimaplib import aioimaplib
 import conf
 from models import MailboxCursor
 from member_message import parse_member_message
-from member_message import store_member_message
-from member_message import send_response
-from prover import generate_zk_proof
-from txn_execution import check_threshold
-from txn_execution import execute_txn
-from txn_execution import change_txn_status
+from member_message import process_member_message
+from member_message import send_response_by_member_message
 from logger import logger
 
 # https://github.com/bamthomas/aioimaplib
 
 
-# ID_HEADER_SET = 'Cc Content-Type In-Reply-To To Message-ID From Date References Subject Bcc DKIM-Signature'
-# ID_HEADER_SET = 'From Date Subject DKIM-Signature'
-
 FETCH_COMMAND = 'fetch'
-# FETCH_CRITERIA_PARTS = 'FLAGS'
-# FETCH_CRITERIA_PARTS = f'(UID FLAGS BODY.PEEK[HEADER.FIELDS ({ID_HEADER_SET})])'
 FETCH_CRITERIA_PARTS = '(UID RFC822)'
 
 FETCH_MESSAGE_DATA_SEQNUM = re.compile(rb'(?P<seqnum>\d+) FETCH.*')
@@ -150,25 +141,17 @@ async def process_imap_messages(lines: list) -> int:
         #     uid_max = uid
         # continue
 
-        logger.info(f'====== Parse raw message: UID={uid}')
-        member_message = await parse_member_message(uid, raw_msg)
-
-        # TODO: refactoring for batch operations - create zk_proofs, save to DB and email
-        if member_message:
-            proof_struct = await generate_zk_proof(member_message.approval_data)
-            if not proof_struct:
-                # TODO: send response that we could not generate proof
-                pass
-            else:
-                member_message.txn = await store_member_message(uid, member_message, proof_struct)
-
-                is_confirmed, proof_structs = await check_threshold(member_message.txn)
-                if is_confirmed:
-                    txn_status = await execute_txn(member_message.txn, proof_structs)
-                    await change_txn_status(member_message.txn, txn_status)
-
-                # TODO: notice all members if the new tx is received
-                await send_response(member_message)
+        try:
+            logger.info(f'====== Parse raw message: UID={uid}')
+            member_message = await parse_member_message(uid, raw_msg)
+            if member_message:
+                logger.info(f'Process member message')
+                is_confirmed, txn = await process_member_message(uid, member_message)
+                if txn:
+                    logger.info(f'Send response by member message')
+                    await send_response_by_member_message(member_message, txn, is_confirmed)
+        except:
+            logger.exception('Member message processing is failed')
 
         if uid > uid_max:
             uid_max = uid

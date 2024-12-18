@@ -42,7 +42,7 @@ async def create_txn(initial_data: InitialData) -> Txn:
         return txn
 
 
-async def change_txn_status(txn_id: int, status: TxnStatus):
+async def change_txn_status(txn_id: int, status: TxnStatus) -> Txn:
     async with AsyncSession(engine) as session:
         statement = select(Txn).where(Txn.id == txn_id)
         results = await session.scalars(statement)

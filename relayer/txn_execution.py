@@ -12,6 +12,7 @@ async def check_threshold(txn: Txn) -> tuple[bool, list[ProofStruct]]:
     logger.info('Check proofs threshold')
 
     if not await crud.check_threshold_is_confirmed(txn.id, txn.samm_id):
+        logger.info('Lack of proofs')
         return False, []
 
     proof_structs: list[ProofStruct] = []
@@ -28,7 +29,7 @@ async def check_threshold(txn: Txn) -> tuple[bool, list[ProofStruct]]:
         logger.error('Proofs list is empty')
         raise
 
-    logger.info(f'Proofs number: {len(proof_structs)}')
+    logger.info(f'Threshold is reached. Proofs number: {len(proof_structs)}')
     return True, proof_structs
 
 
@@ -63,7 +64,7 @@ async def execute_txn(txn: Txn, proof_structs: list[ProofStruct]) -> TxnStatus:
     return TxnStatus.failed
 
 
-async def change_txn_status(txn: Txn, status: TxnStatus):
+async def change_txn_status(txn: Txn, status: TxnStatus) -> Txn:
     logger.info(f'New status: {status}')
-    await crud.change_txn_status(txn.id, status)
+    return await crud.change_txn_status(txn.id, status)
 

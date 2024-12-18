@@ -27,7 +27,6 @@ async def send_email(member_email: str, subject: str, msg_text: str):
         password=RELAYER_PASSWORD,
         use_tls=True
     )
-    print('Create SMTP client')
 
     async with smtp_client:
         await smtp_client.send_message(message)

@@ -10,8 +10,8 @@ import blockchain
 import crud
 import db
 from mailer.dkim_extractor import extract_dkim_data
+from mailer.body_parser import parse_body
 from member_message import parse_member_message
-from member_message import parse_body
 from member_message import extract_txn_data
 from models import ApprovalData
 from models import MemberMessage
@@ -586,7 +586,7 @@ async def test_parse_member_approval_message():
     member_message: MemberMessage = await parse_member_message(uid, approve_eml)
 
     assert member_message.member.email == 'artem@oxor.io'
-    assert member_message.tx.msg_hash == 'yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68='
+    assert member_message.txn.msg_hash == 'yxDnSnI6GTRsU2Dxol/UIeGesTpYQQhFPy4tuXF+W68='
     assert member_message.initial_data is None
     assert member_message.approval_data is not None
 

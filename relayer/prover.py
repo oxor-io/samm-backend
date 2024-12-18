@@ -31,13 +31,11 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
         commit, pubkey_hash, proof = await _generate_proof()
     except:
         logger.exception('Proof generation is failed')
-
-        # TODO: to uncomment
-        # return None
-        commit, pubkey_hash, proof = '0', '0', '0'
+        return None
 
     if not commit or not pubkey_hash or not proof:
-        commit, pubkey_hash, proof = '0', '0', '0'
+        logger.exception(f'Proof is wrong: commit={commit} pubkey_hash={pubkey_hash} proof={proof}')
+        return None
 
     logger.info(f'Proof is generated: commit={commit}')
     return ProofStruct(
