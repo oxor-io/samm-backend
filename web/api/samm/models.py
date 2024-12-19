@@ -43,3 +43,7 @@ class SammPublic(SammBase):
 class SammCreate(SammBase):
     pass
 
+
+class SammUpdate(SQLModel):
+    threshold: int | None = None
+    is_active: bool | None = None

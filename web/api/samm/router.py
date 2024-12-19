@@ -13,6 +13,7 @@ from api.token.dependencies import get_token_subject
 from api.samm.models import Samm
 from api.samm.models import SammCreate
 from api.samm.models import SammPublic
+from api.samm.models import SammUpdate
 from api.token.models import TokenScope
 
 router = APIRouter()
@@ -57,6 +58,28 @@ async def get_samms_me(
     return samms
 
 
+@router.patch(
+    '/samms/{samm_id}/',
+    response_model=SammPublic,
+    dependencies=[Security(get_token_subject, scopes=[TokenScope.samm.value])],
+)
+async def update_samm(
+        samm_id: int,
+        samm_changes: SammUpdate,
+        session: AsyncSession = Depends(get_session),
+):
+    statement = select(Samm).where(Samm.id == samm_id)
+    samm = (await session.scalars(statement)).one()
+
+    samm_data = samm_changes.model_dump(exclude_unset=True)
+    samm.sqlmodel_update(samm_data)
+    session.add(samm)
+
+    await session.commit()
+    await session.refresh(samm)
+    return samm
+
+
 @router.post(
     '/samms/',
     response_model=SammPublic,
@@ -74,6 +97,7 @@ async def add_samm(
     return samm
 
 
+# TODO: deprecated
 @router.delete(
     '/samms/{samm_id}/',
     response_model=SammPublic,
