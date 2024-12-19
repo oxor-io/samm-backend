@@ -16,15 +16,20 @@ async function readJsonFile(filePath) {
 async function main() {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+    const samm1024JsonPath = path.join(__dirname, '..', 'target', 'samm_1024.json');
     const samm2048JsonPath = path.join(__dirname, '..', 'target', 'samm_2048.json');
     const proverJsonPath = path.join(__dirname, '..', 'target', 'prover.json');
     const witnessGzPath = path.join(__dirname, '..', 'target', 'witness.gz');
 
-    const samm_2048 = await readJsonFile(samm2048JsonPath);
+    // is_2048_sig == 'True'
+    const samm = process.argv.slice(2)[0] == 'True'
+      ? await readJsonFile(samm2048JsonPath)
+      : await readJsonFile(samm1024JsonPath);
+
     const input = await readJsonFile(proverJsonPath);
 
     // const backend = new UltraHonkBackend(samm_2048);
-    const noir = new Noir(samm_2048);
+    const noir = new Noir(samm);
 
     const { witness } = await noir.execute(input);
     // const proof = await backend.generateProof(witness);

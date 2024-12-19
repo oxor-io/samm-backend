@@ -40,19 +40,26 @@ def generate_merkle_tree(emails_and_secrets: list[tuple[str, int]]) -> MerkleTre
 def generate_sequences(header: list[int], header_length: int, member: str, relayer: str):
     padded_member = convert_str_to_int_list(member)
     padded_relayer = convert_str_to_int_list(relayer)
-    padded_from = convert_str_to_int_list("from:")
-    padded_to = convert_str_to_int_list("to:")
+    padded_from = convert_str_to_int_list('from:')
+    padded_to = convert_str_to_int_list('to:')
+    padded_email_start = convert_str_to_int_list('<')
 
     # from
-    index = find_subseq_index(header, padded_from)
-    from_seq = Sequence(index=index, length=find_seq_end(header, header_length, index)-index+1)
+    from_index = find_subseq_index(header, padded_from)
+    from_seq = Sequence(index=from_index, length=find_seq_end(header, header_length, from_index)-from_index+1)
     # member
-    member_seq = Sequence(index=find_subseq_index(header, padded_member), length=len(padded_member))
+    member_index = find_subseq_index(header, padded_email_start + padded_member) + 1
+    if member_index == 1:
+        member_index = find_subseq_index(header, padded_member)
+    member_seq = Sequence(index=member_index, length=len(padded_member))
     # to
-    index = find_subseq_index(header, padded_to)
-    to_seq = Sequence(index=index, length=find_seq_end(header, header_length, index)-index+1)
+    to_index = find_subseq_index(header, padded_to)
+    to_seq = Sequence(index=to_index, length=find_seq_end(header, header_length, to_index)-to_index+1)
     # relayer
-    relayer_seq = Sequence(index=find_subseq_index(header, padded_relayer), length=len(padded_relayer))
+    relayer_index = find_subseq_index(header, padded_email_start + padded_relayer) + 1
+    if relayer_index == 1:
+        relayer_index = find_subseq_index(header, padded_relayer)
+    relayer_seq = Sequence(index=relayer_index, length=len(padded_relayer))
 
     return from_seq, member_seq, to_seq, relayer_seq
 

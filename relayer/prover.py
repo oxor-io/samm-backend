@@ -9,6 +9,7 @@ from logger import logger
 current_file_path = os.path.dirname(__file__)
 GENERATE_WITNESS_FILENAME = os.path.join(current_file_path, 'scripts/generateWitness.js')
 PROVER_JSON_FILENAME = os.path.join(current_file_path, 'target/prover.json')
+SAMM_1024_JSON_FILENAME = os.path.join(current_file_path, 'target/samm_1024.json')
 SAMM_2048_JSON_FILENAME = os.path.join(current_file_path, 'target/samm_2048.json')
 WITNESS_GZ_FILENAME = os.path.join(current_file_path, 'target/witness.gz')
 
@@ -27,8 +28,8 @@ async def generate_zk_proof(approval_data: ApprovalData) -> ProofStruct | None:
 
     try:
         _write_prover_json(approval_data)
-        await _generate_witness_gz()
-        commit, pubkey_hash, proof = await _generate_proof()
+        await _generate_witness_gz(is_2048_sig)
+        commit, pubkey_hash, proof = await _generate_proof(is_2048_sig)
     except:
         logger.exception('Proof generation is failed')
         return None
@@ -74,12 +75,13 @@ def _write_prover_json(approval_data: ApprovalData):
         file.write(json_object)
 
 
-async def _generate_witness_gz():
+async def _generate_witness_gz(is_2048_sig: bool):
     # node scripts/generateWitness.js
     logger.info('Generating witness... ⌛')
     process = await asyncio.create_subprocess_exec(
         'node',
         GENERATE_WITNESS_FILENAME,
+        str(is_2048_sig),
         stdout=asyncio.subprocess.PIPE,
         stderr=asyncio.subprocess.PIPE,
     )
@@ -93,14 +95,14 @@ async def _generate_witness_gz():
     logger.info(f'Witness is generated ✅: {stdout}')
 
 
-async def _generate_proof() -> tuple[str, str, str]:
+async def _generate_proof(is_2048_sig: bool) -> tuple[str, str, str]:
     logger.info('Generating proof... ⌛')
     # bb prove_ultra_keccak_honk -b ./target/samm_2048.json -w ./target/witness.gz -o -
     process = await asyncio.create_subprocess_exec(
         'bb',
         'prove_ultra_keccak_honk',
         '-b',
-        SAMM_2048_JSON_FILENAME,
+        SAMM_2048_JSON_FILENAME if is_2048_sig else SAMM_1024_JSON_FILENAME,
         '-w',
         WITNESS_GZ_FILENAME,
         '-o',
