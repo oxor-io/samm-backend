@@ -13,6 +13,98 @@ Sample environment variable files are located in the project root:
 - `.env_relayer.example`  
 - `.env_web.example`  
 
+#### `Relayer` service structure:
+
+```
+.
+├── Dockerfile
+├── __init__.py
+├── blockchain.py
+├── conf.py
+├── crud.py
+├── db.py
+├── imap_client.py
+├── logger.py
+├── mailer
+│   ├── __init__.py
+│   ├── body_parser.py
+│   ├── dkim_extractor.py
+│   └── sender.py
+├── main.py
+├── member_message.py
+├── models.py
+├── package-lock.json
+├── package.json
+├── prover.py
+├── requirements.txt
+├── scripts
+│   └── generateWitness.js
+├── target
+│   ├── samm_1024.json
+│   ├── samm_2048.json
+├── tests.py
+├── txn_execution.py
+└── utils.py
+
+```
+
+**Key files of the `relayer` service:**
+
+- **`imap_client.py`** - Contains functions for retrieving raw emails using the IMAP protocol.
+- **`member_message.py`** - Handles core email processing, including parsing, validation, saving members' email data to the database, and sending response messages to members.
+- **`prover.py`** - Manages zk-proof generation through subprocesses. The `scripts` and `target` folders are used by the Prover.
+- **`txn_execution.py`** - Contains functions for verifying approval thresholds and executing transactions.
+
+#### `Web` service structure:
+
+```
+.
+├── Dockerfile
+├── api
+│   ├── __init__.py
+│   ├── blockchain.py
+│   ├── conf.py
+│   ├── db.py
+│   ├── main.py
+│   ├── member
+│   │   ├── crud.py
+│   │   ├── models.py
+│   │   ├── router.py
+│   │   ├── service.py
+│   │   └── utils.py
+│   ├── owner
+│   │   ├── crud.py
+│   │   ├── models.py
+│   │   └── service.py
+│   ├── samm
+│   │   ├── crud.py
+│   │   ├── models.py
+│   │   ├── router.py
+│   │   └── service.py
+│   ├── sender.py
+│   ├── token
+│   │   ├── dependencies.py
+│   │   ├── models.py
+│   │   ├── router.py
+│   │   └── utils.py
+│   └── txn
+│       ├── models.py
+│       └── router.py
+└── requirements.txt
+
+```
+
+**`Web` service submodules:**
+
+The `web` service is divided into submodules: `owner`, `samm`, `member`, `txn`, and `token`. Each submodule has a similar structure:
+
+- **`models.py`** - Defines the submodule’s data models.
+- **`router.py`** - Describes API endpoints.
+- **`crud.py`** - Contains database queries.
+- **`service.py`** - Implements business logic.
+
+The `token` module has distinct functionality as it handles user authentication, role assignment, and owner signature verification.
+
 ### Environment Variables  
 
 Before running the project, create and populate the environment variable files `.env_relayer` and `.env_web` based on the provided examples.  
