@@ -104,7 +104,6 @@ def extract_header(
 
     signed_headers_merged = hasher.hashed()
 
-    # TODO: 1024 only?
     signed_headers_merged_len = len(signed_headers_merged)
     if (zeroes_num := 1024 - signed_headers_merged_len) > 0:
         signed_headers_merged += b'\x00' * zeroes_num

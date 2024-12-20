@@ -32,11 +32,3 @@ async def send_email(member_email: str, subject: str, msg_text: str):
         await smtp_client.send_message(message)
         print('Message sent')
 
-
-# import asyncio
-# asyncio.run(send_email(
-#     member_email='test@gmail.com',
-#     subject='Relayer response!',
-#     msg_text='We have received the message!',
-# ))
-

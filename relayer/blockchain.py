@@ -37,7 +37,6 @@ async def execute_txn(
     acc = w3.eth.account.from_key(PRIVATE_KEY)
     w3.middleware_onion.inject(SignAndSendRawMiddlewareBuilder.build(acc), layer=0)
 
-    # samm_address = '478dC0AF4ABf508b9Cf21004D891C34632FA9986'
     address = convert_address_from_str(samm_address)
     contract_instance = w3.eth.contract(address=address, abi=SAMM_ABI)
 
@@ -62,7 +61,6 @@ async def execute_txn(
         txn_data.deadline,
     )
 
-    # TODO: add try-cache network exceptions
     try:
         txn_hash = await contract_instance.functions.executeTransactionReturnData(*params).transact({'from': acc.address})
     except ContractCustomError:

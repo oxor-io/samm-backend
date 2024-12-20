@@ -270,8 +270,8 @@ def _create_test_body(samm_id: int) -> str:
     txn_to = '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
     txn_value = 5000111390000000000
     txn_data = '0xa9059cbb'\
-           '0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
-           '00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
+               '0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
+               '00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
     txn_operation = TxnOperation.call.value
     txn_nonce = 34344
     txn_deadline = 123123123123
@@ -294,8 +294,8 @@ def test_parse_body():
     assert txn_data.to == '0x07a565b7ed7d7a678680a4c162885bedbb695fe0'
     assert txn_data.value == 5000111390000000000
     assert txn_data.data == b'0xa9059cbb'\
-                           b'0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
-                           b'00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
+                            b'0000000000000000000000003f5047bdb647dc39c88625e17bdbffee905a9f44'\
+                            b'00000000000000000000000000000000000000000000011c9a62d04ed0c80000'
     assert txn_data.operation == TxnOperation.call
     assert txn_data.nonce == 34344
     assert txn_data.deadline == 123123123123
@@ -688,8 +688,26 @@ async def test_prover_2048():
                          "0x16e72b5eb4c813a3b37998083aab81", "0xa48e7050aa8abedce5a45c16985376",
                          "0xdd3285e53b322b221f7bcf4f8f8ad8", "0x0132"]
 
-    signature_limbs = ["0x0ef6ec271d19ed41602ffe2e30c0cb", "0x729e6fac41a145c51ba5d2e5bf0620", "0x11bc2248c6c5ed160b70e391f7e77d", "0xf7c9177c65d3c1b96c19f15f26b695", "0xe4923be8ef886acfcb697ac5850fba", "0x87b006e04b3d3d24847f5a231055f6", "0x2de73f5d31249cd479a69d56b10885", "0x727b6b488779df5dd106233a96ce91", "0xd4c4d448642f295114310f4651fcc6", "0x270515e5c52241c67af070af4096ea", "0x5626acd694f8b3d1a44e666afae946", "0xb6c16a808507ad3b53aac2410111eb", "0x8bb625f6320c80f92c22cbba03e4cc", "0x913303b643f219631de1dc5df6fed3", "0xe8a10e24ae463d6a6b4ae18c4394aa", "0x20c35e76c9ddf7c1d74cca30884be9", "0x32c60e6da41bdf42424e8b61fb5c1c", "0xa3"]
-
+    signature_limbs = [
+        "0x0ef6ec271d19ed41602ffe2e30c0cb",
+        "0x729e6fac41a145c51ba5d2e5bf0620",
+        "0x11bc2248c6c5ed160b70e391f7e77d",
+        "0xf7c9177c65d3c1b96c19f15f26b695",
+        "0xe4923be8ef886acfcb697ac5850fba",
+        "0x87b006e04b3d3d24847f5a231055f6",
+        "0x2de73f5d31249cd479a69d56b10885",
+        "0x727b6b488779df5dd106233a96ce91",
+        "0xd4c4d448642f295114310f4651fcc6",
+        "0x270515e5c52241c67af070af4096ea",
+        "0x5626acd694f8b3d1a44e666afae946",
+        "0xb6c16a808507ad3b53aac2410111eb",
+        "0x8bb625f6320c80f92c22cbba03e4cc",
+        "0x913303b643f219631de1dc5df6fed3",
+        "0xe8a10e24ae463d6a6b4ae18c4394aa",
+        "0x20c35e76c9ddf7c1d74cca30884be9",
+        "0x32c60e6da41bdf42424e8b61fb5c1c",
+        "0xa3",
+    ]
 
     approval_data = ApprovalData(
         domain='icloud.com',
@@ -867,7 +885,7 @@ async def test_blockchain_execution_txn2():
         'deadline': 1735057548,
     }
     msg_hash: bytes = await blockchain.get_message_hash(samm_address, **params)
-    print('MSG HASH', base64.b64encode(msg_hash).decode())
+    # print('MSG HASH', base64.b64encode(msg_hash).decode())
     assert base64.b64encode(msg_hash).decode() == 'tZ25sD8y506IPhtXSPosJUQW3vmUTxE4o2kgZgpSzjw='
 
 

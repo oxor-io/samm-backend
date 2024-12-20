@@ -64,7 +64,6 @@ def generate_sequences(header: list[int], header_length: int, member: str, relay
     return from_seq, member_seq, to_seq, relayer_seq
 
 
-# TODO: multiple occurancies
 def find_subseq_index(arr: list[int], target: list[int]):
     start_idx = 0
     

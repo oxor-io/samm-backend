@@ -55,6 +55,7 @@ class Owner(SQLModel, table=True):
 class Samm(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str | None
+    # TODO: remove deprecated
     nonce: int | None = Field(default=0)
     samm_address: str
     safe_address: str

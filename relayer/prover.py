@@ -89,7 +89,6 @@ async def _generate_witness_gz(is_2048_sig: bool):
     (stdout, stderr) = await process.communicate()
     if stderr:
         logger.error(f'Witness generation is failed ⭕: {stderr}')
-        # TODO: error
         raise
 
     logger.info(f'Witness is generated ✅: {stdout}')
@@ -114,7 +113,6 @@ async def _generate_proof(is_2048_sig: bool) -> tuple[str, str, str]:
     (stdout, stderr) = await process.communicate()
     if stderr:
         logger.error(f'Proof generation is failed ⭕: {stderr}')
-        # TODO: error
         raise
 
     logger.info('Proof is generated ✅')
