@@ -80,7 +80,7 @@ class Member(SQLModel, table=True):
         description='The email of the user',
     )
     is_active: bool
-    secret: int
+    secret: str
     hashed_password: str
 
     samms: list[Samm] = Relationship(back_populates='members', link_model=SammMemberLink)
@@ -156,10 +156,13 @@ class ApprovalData:
 
     padded_member: list[int]
     padded_member_length: int
-    secret: int
+    secret: str
+    relayer_address: str
     padded_relayer: list[int]
     padded_relayer_length: int
 
+    padded_domain: list[int]
+    padded_domain_length: int
     key_size: int
     pubkey_modulus_limbs: list[str]
     redc_params_limbs: list[str]

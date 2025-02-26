@@ -1,5 +1,6 @@
 from datetime import datetime
 from datetime import timezone
+from random import randint
 from sqlmodel import select
 from sqlalchemy import func
 from sqlalchemy.orm import selectinload
@@ -145,6 +146,10 @@ async def get_approvals(txn_id: int):
         return results.all()
 
 
+def _random_secret() -> str:
+    return str(randint(2 ** 100 + 1, 2 ** 254 - 1))
+
+
 async def fill_db_initial_txn(first_user_email: str) -> Samm:
     async with AsyncSession(engine) as session:
         samm = Samm(
@@ -163,28 +168,28 @@ async def fill_db_initial_txn(first_user_email: str) -> Samm:
             samm=samm,
             email=first_user_email,
             is_active=True,
-            secret=111,
+            secret=_random_secret(),
             hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
         )
         m2 = Member(
             samm=samm,
             email='asd@gmail.com',
             is_active=True,
-            secret=222,
+            secret=_random_secret(),
             hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
         )
         m3 = Member(
             samm=samm,
             email='zxc@yandex.ru',
             is_active=True,
-            secret=333,
+            secret=_random_secret(),
             hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
         )
         m4 = Member(
             samm=samm,
             email='spammer@topdomain.xyz',
             is_active=False,
-            secret=444,
+            secret=_random_secret(),
             hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
         )
 
@@ -222,28 +227,28 @@ async def fill_db_approval_txn(first_user_email: str):
             samm=samm,
             email=first_user_email,
             is_active=True,
-            secret=111,
+            secret=_random_secret(),
             hashed_password='$2b$12$s6uvJVu5qdgj5vflGWgbburPUynFda5/B9GzJTWwAtZi/utv3CWNu',
         )
         m2 = Member(
             samm=samm,
             email='asd@gmail.com',
             is_active=True,
-            secret=222,
+            secret=_random_secret(),
             hashed_password='$2b$12$OXgC3UOnGTSCN5YUvB956OJdDgbtJIwUWGtEmINxjtBXFXJIU7cOa',
         )
         m3 = Member(
             samm=samm,
             email='zxc@yandex.ru',
             is_active=True,
-            secret=333,
+            secret=_random_secret(),
             hashed_password='$2b$12$DcAiu5KuPVQtxlFE6qGX7.VgOG7ioTXE21/DElx1zuheZ1cFKWwJ2',
         )
         m4 = Member(
             samm=samm,
             email='spammer@topdomain.xyz',
             is_active=False,
-            secret=444,
+            secret=_random_secret(),
             hashed_password='$2b$12$ff97kTgAzfW8A7KlhR0r8e8Rt1NzVPmgiTwkBSei/lGM2XrlxWY6i',
         )
 

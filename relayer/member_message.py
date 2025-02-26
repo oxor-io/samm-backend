@@ -22,6 +22,7 @@ from models import TxnOperation
 from models import TxnData
 from utils import convert_str_to_int_list
 from utils import generate_merkle_tree
+from utils import get_padded_domain
 from utils import get_padded_email
 from utils import generate_sequences
 from prover import generate_zk_proof
@@ -167,6 +168,7 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
     domain, header, header_length, key_size, pubkey_modulus_limbs, redc_params_limbs, signature_limbs = \
         await extract_dkim_data(raw_msg)
     msg_hash = convert_str_to_int_list(msg_hash_b64)
+    padded_domain, padded_domain_length = get_padded_domain(domain)
     padded_member, padded_member_length = get_padded_email(member.email)
     padded_relayer, padded_relayer_length = get_padded_email(relayer_email)
 
@@ -186,9 +188,12 @@ async def create_approval_data(raw_msg: bytes, msg_hash_b64: str, members: list[
         padded_member=padded_member,
         padded_member_length=padded_member_length,
         secret=member.secret,
+        relayer_address=str(conf.RELAYER_ADDRESS),
         padded_relayer=padded_relayer,
         padded_relayer_length=padded_relayer_length,
 
+        padded_domain=padded_domain,
+        padded_domain_length=padded_domain_length,
         key_size=key_size,
         pubkey_modulus_limbs=pubkey_modulus_limbs,
         redc_params_limbs=redc_params_limbs,

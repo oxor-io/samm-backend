@@ -1,6 +1,7 @@
 from circomlibpy.merkle_tree import MerkleTree
 from models import Sequence
 
+MAX_EMAIL_DOMAIN_LENGTH = 24
 MAX_PADDED_EMAIL_LEN = 124
 CHUNK_LEN = 31
 CHUNK_HEX_LEN = CHUNK_LEN * 2
@@ -17,13 +18,21 @@ def convert_str_to_int_list(x: str) -> list[int]:
     return list(map(ord, x))
 
 
-def get_padded_email(email: str):
-    padded_email = convert_str_to_int_list(email)
-    padded_email_length = len(padded_email)
-    if (zeros_num := MAX_PADDED_EMAIL_LEN - padded_email_length) > 0:
-        padded_email += [0] * zeros_num
+def _get_padded_str(text: str, max_len: int) -> tuple[list[int], int]:
+    padded_text = convert_str_to_int_list(text)
+    padded_text_length = len(padded_text)
+    if (zeros_num := max_len - padded_text_length) > 0:
+        padded_text += [0] * zeros_num
 
-    return padded_email, padded_email_length
+    return padded_text, padded_text_length
+
+
+def get_padded_domain(domain: str) -> tuple[list[int], int]:
+    return _get_padded_str(domain, MAX_EMAIL_DOMAIN_LENGTH)
+
+
+def get_padded_email(email: str) -> tuple[list[int], int]:
+    return _get_padded_str(email, MAX_PADDED_EMAIL_LEN)
 
 
 def generate_merkle_tree(emails_and_secrets: list[tuple[str, int]]) -> MerkleTree:

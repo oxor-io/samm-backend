@@ -28,7 +28,7 @@ class MemberBase(SQLModel):
 
 class Member(MemberBase, table=True):
     id: int | None = Field(default=None, nullable=False, primary_key=True)
-    secret: int
+    secret: str
     hashed_password: str
     is_active: bool
 
@@ -43,7 +43,7 @@ class MemberPublic(MemberBase):
 
 
 class MemberCreateSecret(MemberBase):
-    secret: int
+    secret: str
     hashed_password: str
     is_active: bool
 
