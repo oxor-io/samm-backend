@@ -12,10 +12,10 @@ from api.member.utils import generate_merkle_tree
 
 def create_member(member_email: str) -> tuple[Member, str]:
     # TODO: merge secret and raw_password
-    # randint(2**100+1, 2**254-1)
+    # randint(2**100+1, 2**254-2)
     secret = randint(
         1267650600228229401496703205377,
-        28948022309329048855892746252171976963317496166410141009864396001978282409983
+        28948022309329048855892746252171976963317496166410141009864396001978282409982
     )
     raw_password = secrets.token_urlsafe(8)
     hashed_password = get_password_hash(raw_password)
