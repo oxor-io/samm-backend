@@ -66,6 +66,6 @@ def calculate_samm_root(members: list[Member]) -> str:
     # TODO: check that the new(removed) member in the list
     # TODO: less predictable order
     members.sort(key=lambda x: x.id)
-    emails_and_secrets = [(member.email, member.secret) for member in members]
+    emails_and_secrets = [(member.email, int(member.secret)) for member in members]
     tree = generate_merkle_tree(emails_and_secrets)
     return str(tree.root)
