@@ -48,7 +48,7 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
     logger.info(f'Raw message is parsed: from={member_email} to={relayer_email} subj={msg_hash}')
 
     logger.info('Check relayer email')
-    if relayer_email != conf.RELAYER_EMAIL:
+    if relayer_email.lower() != conf.RELAYER_EMAIL:
         logger.warning(f'Email "To" does not belong to Relayer: {relayer_email} != {conf.RELAYER_EMAIL}')
         return None
 
@@ -62,7 +62,7 @@ async def parse_member_message(uid: int, raw_msg: bytes) -> MemberMessage | None
         return None
 
     logger.info('Check member by "From" email')
-    member = await crud.get_member_by_email(member_email)
+    member = await crud.get_member_by_email(member_email.lower())
     if not member:
         logger.warning(f'Email "From" is not a member: {member_email}')
         return None
