@@ -147,7 +147,10 @@ async def get_approvals(txn_id: int):
 
 
 def _random_secret() -> str:
-    return str(randint(2 ** 100 + 1, 2 ** 254 - 1))
+    return str(randint(
+        1267650600228229401496703205377,
+        21888242871839275222246405745257275088548364400416034343698204186575808495616
+    ))
 
 
 async def fill_db_initial_txn(first_user_email: str) -> Samm:

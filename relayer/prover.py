@@ -119,12 +119,14 @@ async def _generate_proof(is_2048_sig: bool) -> tuple[str, str, str]:
 
     logger.info('Proof is generated ✅')
 
+    # https://github.com/oxor-io/samm-circuits?tab=readme-ov-file#prepare-proof-for-smart-contract-tests
     # split to public inputs, outputs (commit, pubkeyHash) and proof itself
     # first output
-    commit = stdout[5540:5572].hex()
+    shift = 4
+    commit = stdout[(shift+6368):((shift+6368) + 32)].hex()
     # second output
-    pubkey_hash = stdout[5572:5604].hex()
+    pubkey_hash = stdout[(shift+6368+32):((shift+6368+32) + 32)].hex()
     # proof
-    proof = stdout[4:100].hex() + stdout[5604:].hex()
+    proof = stdout[shift:shift+96].hex() + stdout[shift+6432:].hex()
 
     return commit, pubkey_hash, proof
