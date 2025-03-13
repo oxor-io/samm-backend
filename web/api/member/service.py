@@ -54,7 +54,7 @@ async def detect_and_save_new_members(member_emails: list[str]) -> tuple[list[Me
 
 
 async def authenticate_member(member_email: str, member_raw_password: str) -> Member | None:
-    member = await crud.get_member_by_email(member_email)
+    member = await crud.get_member_by_email(member_email.lower())
     if not member:
         return None
     if not verify_password(member_raw_password, member.hashed_password):
